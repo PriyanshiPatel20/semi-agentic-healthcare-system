@@ -1,104 +1,257 @@
 import cron from "node-cron";
 import prisma from "../prisma/client.js";
 import axios from "axios";
-                        
 
 cron.schedule("* * * * *", async () => {
 
-    console.log("Checking appointments...");
+    try {
 
-    const today = new Date();
+        console.log("Checking appointments...");
 
-    const start = new Date(today);
-    start.setHours(0, 0, 0, 0);
+        const today = new Date();
 
-    const end = new Date(today);
-    end.setHours(23, 59, 59, 999);
+        const start = new Date(today);
 
-    // today's appointments
-    const appointments = await prisma.appointment.findMany({
-        where: {
-            date: {
-                gte: start,
-                lte: end,
-            },
-        },
+        start.setHours(0, 0, 0, 0);
 
-        include: {
-            patient: true,
-            doctor: true,
-        },
-    });
+        const end = new Date(today);
 
-    for (const appointment of appointments) {
+        end.setHours(23, 59, 59, 999);
 
-        // prevent duplicate reminder
-        const existingReminder = await prisma.reminder.findFirst({
-            where: {
-                appointmentId: appointment.id,
-            },
-        });
+        // TODAY APPOINTMENTS
+        const appointments =
+            await prisma.appointment.findMany({
 
-        if (existingReminder) continue;
+                where: {
 
-        // AI Reminder Message
-        const aiResponse = await axios.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            {
-                model: "meta-llama/llama-3-8b-instruct",
-
-                messages: [
-                    {
-                        role: "system",
-                        content: `
-                        You are hospital reminder AI.
-
-                        Generate short appointment reminder.
-
-                        Max 25 words.
-                        Friendly tone.
-                        `,
+                    date: {
+                        gte: start,
+                        lte: end,
                     },
-
-                    {
-                        role: "user",
-                        content: `
-                        Patient: ${appointment.patient.name}
-
-                        Doctor: ${appointment.doctor.name}
-
-                        Specialty: ${appointment.doctor.specialty}
-
-                        Appointment Date:
-                        ${appointment.date.toISOString().split("T")[0]}
-
-                        Appointment Time:
-                        ${appointment.time}
-                        `,
-                    },
-                ],
-            },
-
-            {
-                headers: {
-                    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json",
                 },
+
+                include: {
+                    patient: true,
+                    doctor: true,
+                },
+            });
+
+        for (const appointment of appointments) {
+
+            // ====================================
+            // PATIENT REMINDER CHECK
+            // ====================================
+            const existingPatientReminder =
+                await prisma.reminder.findFirst({
+
+                    where: {
+
+                        appointmentId: appointment.id,
+
+                        receiverType: "patient",
+                    },
+                });
+
+            // ====================================
+            // CREATE PATIENT REMINDER
+            // ====================================
+            if (!existingPatientReminder) {
+
+                const aiResponse = await axios.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    {
+                        model:
+                            "meta-llama/llama-3-8b-instruct",
+
+                        messages: [
+
+                            {
+                                role: "system",
+
+                                content: `
+                                You are hospital reminder AI.
+
+                                Generate short reminder for patient.
+
+                                Max 25 words.
+
+                                Friendly tone.
+                                `,
+                            },
+
+                            {
+                                role: "user",
+
+                                content: `
+                                Patient:
+                                ${appointment.patient.name}
+
+                                Doctor:
+                                ${appointment.doctor.name}
+
+                                Specialty:
+                                ${appointment.doctor.specialty}
+
+                                Appointment Date:
+                                ${appointment.date.toISOString().split("T")[0]}
+
+                                Appointment Time:
+                                ${appointment.time}
+                                `,
+                            },
+                        ],
+                    },
+
+                    {
+                        headers: {
+
+                            Authorization:
+                                `Bearer ${process.env.OPENROUTER_API_KEY}`,
+
+                            "Content-Type":
+                                "application/json",
+                        },
+                    }
+                );
+
+                const patientMessage =
+                    aiResponse.data?.choices?.[0]?.message?.content ||
+
+                    "You have appointment today.";
+
+                await prisma.reminder.create({
+
+                    data: {
+
+                        appointmentId:
+                            appointment.id,
+
+                        message:
+                            patientMessage,
+
+                        receiverType:
+                            "patient",
+
+                        receiverId:
+                            appointment.patient.id,
+                    },
+                });
+
+                console.log(
+                    `Patient reminder created for appointment ${appointment.id}`
+                );
             }
+
+            // ====================================
+            // DOCTOR REMINDER CHECK
+            // ====================================
+            const existingDoctorReminder =
+                await prisma.reminder.findFirst({
+
+                    where: {
+
+                        appointmentId:
+                            appointment.id,
+
+                        receiverType:
+                            "doctor",
+                    },
+                });
+
+            // ====================================
+            // CREATE DOCTOR REMINDER
+            // ====================================
+            if (!existingDoctorReminder) {
+
+                const doctorAiResponse =
+                    await axios.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        {
+                            model:
+                                "meta-llama/llama-3-8b-instruct",
+
+                            messages: [
+
+                                {
+                                    role: "system",
+
+                                    content: `
+                                    You are hospital assistant AI.
+
+                                    Generate short reminder for doctor.
+
+                                    Max 25 words.
+
+                                    Professional tone.
+                                    `,
+                                },
+
+                                {
+                                    role: "user",
+
+                                    content: `
+                                    Doctor:
+                                    ${appointment.doctor.name}
+
+                                    Patient:
+                                    ${appointment.patient.name}
+
+                                    Appointment Date:
+                                    ${appointment.date.toISOString().split("T")[0]}
+
+                                    Appointment Time:
+                                    ${appointment.time}
+                                    `,
+                                },
+                            ],
+                        },
+
+                        {
+                            headers: {
+
+                                Authorization:
+                                    `Bearer ${process.env.OPENROUTER_API_KEY}`,
+
+                                "Content-Type":
+                                    "application/json",
+                            },
+                        }
+                    );
+
+                const doctorMessage =
+                    doctorAiResponse.data?.choices?.[0]?.message?.content ||
+
+                    "You have patient appointment today.";
+
+                await prisma.reminder.create({
+
+                    data: {
+
+                        appointmentId:
+                            appointment.id,
+
+                        message:
+                            doctorMessage,
+
+                        receiverType:
+                            "doctor",
+
+                        receiverId:
+                            appointment.doctor.id,
+                    },
+                });
+
+                console.log(
+                    `Doctor reminder created for appointment ${appointment.id}`
+                );
+            }
+        }
+
+    } catch (error) {
+
+        console.log(
+            "REMINDER CRON ERROR:",
+            error.message
         );
-
-        const reminderMessage =
-            aiResponse.data?.choices?.[0]?.message?.content ||
-            "You have appointment today.";
-
-        // save reminder
-        await prisma.reminder.create({
-            data: {
-                appointmentId: appointment.id,
-                message: reminderMessage,
-            },
-        });
-
-        console.log("Reminder created");
     }
 });

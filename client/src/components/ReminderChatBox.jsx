@@ -6,16 +6,18 @@ import { FaBell } from "react-icons/fa";
 export default function ReminderChatBox() {
 
   const [open, setOpen] = useState(false);
+
   const [reminders, setReminders] = useState([]);
 
   const fetchReminders = async () => {
 
     try {
 
-      const user = JSON.parse(localStorage.getItem("user"));
+      const user =
+        JSON.parse(localStorage.getItem("user"));
 
       const res = await API.get(
-        "/reminders/my-reminders",
+        "/reminders/patient-reminders",
         {
           headers: {
             role: user.role,
@@ -38,7 +40,9 @@ export default function ReminderChatBox() {
     fetchReminders();
 
     const interval = setInterval(() => {
+
       fetchReminders();
+
     }, 15000);
 
     return () => clearInterval(interval);
@@ -55,6 +59,7 @@ export default function ReminderChatBox() {
       </div>
 
       {open && (
+
         <div className="reminder-chatbox">
 
           <div className="reminder-header">
@@ -64,18 +69,26 @@ export default function ReminderChatBox() {
           <div className="reminder-messages">
 
             {reminders.length === 0 ? (
+
               <p>No reminders today</p>
+
             ) : (
+
               reminders.map((r) => (
+
                 <div
                   key={r.id}
                   className="reminder-card"
                 >
+
                   <p>{r.message}</p>
 
                   <small>
-                    Doctor: {r.appointment.doctor.name}
+                    Doctor:
+                    {" "}
+                    {r.appointment?.doctor?.name}
                   </small>
+
                 </div>
               ))
             )}

@@ -1,14 +1,22 @@
 import express from "express";
 
 import {
-  getPatientReminders
+  getPatientReminders,
+  getDoctorReminders,
 } from "../controllers/reminderController.js";
 
 const router = express.Router();
 
+// PATIENT
 router.get(
-  "/my-reminders",
+  "/patient-reminders",
   getPatientReminders
+);
+
+// DOCTOR
+router.get(
+  "/doctor-reminders",
+  getDoctorReminders
 );
 
 export default router;

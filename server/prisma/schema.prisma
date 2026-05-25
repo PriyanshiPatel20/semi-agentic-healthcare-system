@@ -134,7 +134,12 @@ model Reminder {
   appointment   Appointment @relation(fields: [appointmentId], references: [id])
 
   message String
-  sent    Boolean @default(false)
+
+  receiverType String?
+
+  receiverId Int?
+
+  sent Boolean @default(false)
 
   createdAt DateTime @default(now())
 }

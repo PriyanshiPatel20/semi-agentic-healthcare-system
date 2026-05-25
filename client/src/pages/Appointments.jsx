@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import API from "../api";
 import "../styles/appointment.css";
 import { useNavigate } from "react-router-dom";
+import DoctorReminderBox
+from "../components/DoctorReminderBox";
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -211,6 +213,7 @@ export default function Appointments() {
           </table>
         )}
       </div>
+        <DoctorReminderBox />
 
       {/*  Pagination Controls */}
       <div className="pagination">
