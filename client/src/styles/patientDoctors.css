@@ -1,0 +1,112 @@
+
+.page {
+  padding: 30px;
+  background: #f5f7fb;
+  min-height: 100vh;
+  font-family: "Inter", sans-serif;
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.table th {
+  background: #f9fafb;
+}
+
+.btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: white;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #4338ca;
+}
+.btn.booked {
+  background-color: green;
+  color: white;
+  cursor: not-allowed;
+}
+
+/* Additional styles for the header and Excel button */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* space between buttons */
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  margin-right: auto; /* pushes buttons to right side */
+}
+.excel-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #16a34a;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.excel-btn:hover {
+  background: #15803d;
+}
+
+.pdf-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #dc2626;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pdf-btn:hover {
+  background: #b91c1c;
+}
+/* Back Button */
+.header-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+
+.back-btn{
+  background:#1e293b;
+  color:white;
+  border:none;
+  padding:8px 16px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:600;
+  transition:0.2s;
+}
+
+.back-btn:hover{
+  transform:translateY(-2px);
+  opacity:0.9;
+}

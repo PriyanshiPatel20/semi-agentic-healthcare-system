@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  name     String
+  email    String   @unique
+  password String
+  role     String // admin, doctor, patient
+  patient  Patient?
+  doctor   Doctor?
+}
+
+enum PatientStatus {
+  ACTIVE
+  CRITICAL
+  DISCHARGED
+}
+
+model Patient {
+  id         Int     @id @default(autoincrement())
+  name       String
+  age        Int
+  gender     String
+  contact    String
+  bloodGroup String?
+
+  status       PatientStatus? @default(ACTIVE)
+  medicalNotes String?        @db.Text
+
+  userId         Int?            @unique
+  user           User?           @relation(fields: [userId], references: [id])
+  appointments   Appointment[]
+  chats          Chat[]
+  doctorChats    DoctorChat[]
+  medicalRecords MedicalRecord[]
+}
+
+model Doctor {
+  id         Int     @id @default(autoincrement())
+  name       String
+  specialty  String
+  experience String?
+  mobile     String?
+
+  userId       Int?          @unique
+  user         User?         @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+  doctorChats  DoctorChat[]
+}
+
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  doctorId  Int
+  date      DateTime
+
+  time      String?
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  doctor    Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
+}
+
+model Chat {
+  id        Int      @id @default(autoincrement())
+  message   String   @db.Text
+  reply     String   @db.Text
+  specialty String?
+  createdAt DateTime @default(now())
+
+  patientId Int?
+  patient   Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model DoctorChat {
+  id Int @id @default(autoincrement())
+
+  message String @db.Text
+  reply   String @db.Text
+
+  createdAt DateTime @default(now())
+
+  doctorId  Int?
+  patientId Int?
+
+  doctor  Doctor?  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model MedicalRecord {
+  id        Int @id @default(autoincrement())
+  patientId Int
+
+  symptoms        String? @db.Text
+  diagnosis       String? @db.Text
+  vitals          String? @db.Text
+  prescription    String? @db.Text
+  notes           String? @db.Text
+  riskLevel       String?
+  redFlags        String? @db.LongText
+  recommendations String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model MedicalReport {
+  id        Int    @id @default(autoincrement())
+  patientId Int
+  doctorId  Int?
+  report    String @db.Text
+
+  createdAt DateTime @default(now())
+}
+
+model Reminder {
+  id Int @id @default(autoincrement())
+
+  appointmentId Int
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+
+  message String
+  sent    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
