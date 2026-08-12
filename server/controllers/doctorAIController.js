@@ -39,7 +39,7 @@ export const doctorAIChat = async (req, res) => {
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "meta-llama/llama-3-8b-instruct",
+        model: "meta-llama/llama-3.1-8b-instruct",
         messages: [
           {
             role: "system",
@@ -202,7 +202,7 @@ export const getDoctorChats = async (req, res) => {
 //     const response = await axios.post(
 //       "https://openrouter.ai/api/v1/chat/completions",
 //       {
-//         model: "meta-llama/llama-3-8b-instruct",
+//         model: "meta-llama/llama-3.1-8b-instruct",
 //         messages: [
 //           {
 //             role: "system",
@@ -327,7 +327,7 @@ export const generatePDFMedicalReport = async (req, res) => {
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "meta-llama/llama-3-8b-instruct",
+        model: "meta-llama/llama-3.1-8b-instruct",
         messages: [
           {
             role: "system",

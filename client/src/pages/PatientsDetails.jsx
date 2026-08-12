@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import API from "../api";
 import "../styles/patient.css";
-import "../styles/chatbox.css"
+import "../styles/chatbox.css";
+import "../styles/consultation.css";
 import DoctorChatBox from "../components/DoctorChatBox.jsx";
+import ConsultationNote from "../components/ConsultationNote.jsx";
 import { useNavigate } from "react-router-dom";
 
 export default function Patients() {
@@ -130,10 +132,8 @@ export default function Patients() {
           </button>
         </div>
         <div className="patients-page">
-
           <DoctorChatBox patient={selectedPatient} />
-
-
+          <ConsultationNote patient={selectedPatient} />
         </div>
       </div>
     </div>

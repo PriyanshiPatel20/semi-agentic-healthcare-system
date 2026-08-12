@@ -3,6 +3,7 @@ import API from "../api";
 import "../styles/patientDoctors.css";
 import ChatBox from "../components/ChatBox";
 import ReminderChatBox from "../components/ReminderChatBox";
+import PatientNoteCard from "../components/PatientNoteCard";
 
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -513,6 +514,9 @@ export default function PatientDoctors() {
         </button>
 
       </div>
+
+      {/* PATIENT HEALTH NOTES */}
+      <PatientNoteCard />
 
       {/* AI CHAT */}
       <div className="patients-page">
