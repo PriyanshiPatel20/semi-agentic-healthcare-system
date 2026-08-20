@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import API from "../api";
 import "../styles/chatbox.css";
 import { FaComment } from "react-icons/fa";
+import { toast } from "react-toastify";
 
 export default function ChatBox() {
   const [message, setMessage] = useState("");
@@ -9,6 +10,7 @@ export default function ChatBox() {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
   const [activeDoctorId, setActiveDoctorId] = useState(null);
 
   const sendMessage = async () => {
@@ -46,7 +48,7 @@ export default function ChatBox() {
     setLoading(false);
   };
 
-  const handleBookFromChat = async (doctorId, date) => {
+  const handleBookFromChat = async (doctorId, date, time) => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
 
@@ -60,11 +62,17 @@ export default function ChatBox() {
         return;
       }
 
+      if (!time) {
+        alert("Please select time");
+        return;
+      }
+
       await API.post(
         "/patient-appointments/book",
         {
           doctorId,
           date,
+          time,
         },
         {
           headers: {
@@ -74,9 +82,10 @@ export default function ChatBox() {
         }
       );
 
+      toast.success("Appointment booked successfully!");
       setChat((prev) => [
         ...prev,
-        { type: "bot", text: "Appointment booked successfully " },
+        { type: "bot", text: " Appointment booked successfully!" },
       ]);
 
       // sync with doctor page
@@ -86,18 +95,22 @@ export default function ChatBox() {
 
       setActiveDoctorId(null);
       setSelectedDate("");
+      setSelectedTime("");
     } catch (err) {
-      setChat((prev) => [
-        ...prev,
-        { type: "bot", text: "Booking failed " },
-      ]);
+      const errMsg =
+        err.response?.data?.error || "Booking failed. Please try again.";
+      toast.error(errMsg);
     }
   };
   const fetchChats = async () => {
     try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user) return;
+
       const res = await API.get("/chat", {
         headers: {
           role: "patient",
+          userid: user.id,
         },
       });
 
@@ -120,6 +133,27 @@ export default function ChatBox() {
       console.log(err);
     }
   };
+
+  const clearChatHistory = async () => {
+    if (!window.confirm("Are you sure you want to clear your chat history?")) return;
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user) return;
+
+      await API.delete("/chat", {
+        headers: {
+          role: "patient",
+          userid: user.id,
+        },
+      });
+      setChat([]);
+      toast.success("Chat history cleared! ");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to clear chat history.");
+    }
+  };
+
   useEffect(() => {
     fetchChats();
   }, []);
@@ -135,6 +169,12 @@ export default function ChatBox() {
       {/* Chatbox */}
       {isOpen && (
         <div className="chatbox">
+          <div className="doctor-ai-header">
+            <span>AI Assistant</span>
+            {chat.length > 0 && (
+              <button className="clear-chat-btn" onClick={clearChatHistory}>Clear Chat</button>
+            )}
+          </div>
           <div className="messages">
             {chat.map((c, i) => (
               <div key={i} className={`msg ${c.type}`}>
@@ -176,7 +216,7 @@ export default function ChatBox() {
                       </div>
                     )}
 
-                    {/*  DATE PICKER (INSIDE MAP) */}
+                    {/*  DATE + TIME PICKER */}
                     {activeDoctorId === c.doctor.id && (
                       <div className="date-picker">
                         <input
@@ -187,11 +227,20 @@ export default function ChatBox() {
                           }
                         />
 
+                        <input
+                          type="time"
+                          value={selectedTime}
+                          onChange={(e) =>
+                            setSelectedTime(e.target.value)
+                          }
+                        />
+
                         <button
                           onClick={() =>
                             handleBookFromChat(
                               c.doctor.id,
-                              selectedDate
+                              selectedDate,
+                              selectedTime
                             )
                           }
                         >

@@ -22,13 +22,15 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard/>} />
-        <Route path="/patients" element={<Patients />} />
-        <Route path="/doctors" element={<Doctors />} />
-        <Route path="/appointments" element={<Appointments />} />
-        <Route path="/patient-doctors" element={<PatientDoctors />} />
-        <Route path= "/patients-details" element= {<PatientsDetails />} />
-        <Route path="/patient-profile" element={<PatientProfile />} />
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Dashboard/>} />
+          <Route path="/patients" element={<Patients />} />
+          <Route path="/doctors" element={<Doctors />} />
+          <Route path="/appointments" element={<Appointments />} />
+          <Route path="/patient-doctors" element={<PatientDoctors />} />
+          <Route path="/patients-details" element={<PatientsDetails />} />
+          <Route path="/patient-profile" element={<PatientProfile />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

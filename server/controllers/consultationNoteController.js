@@ -13,20 +13,35 @@ export const transcribeAudio = async (req, res) => {
       return res.status(400).json({ error: "No audio file uploaded" });
     }
 
-    // Use OpenRouter Whisper (via OpenAI-compatible endpoint)
-    // or fall back to assemblyai-style via groq
     const audioBuffer = req.file.buffer;
     const audioFilename = req.file.originalname || "consultation.webm";
 
-    // Build FormData for Groq Whisper API (free, fast)
+    // Normalize mimetype to prevent Groq API issues
+    let contentType = req.file.mimetype || "audio/webm";
+    if (contentType.includes("webm")) {
+      contentType = "audio/webm";
+    } else if (contentType.includes("ogg")) {
+      contentType = "audio/ogg";
+    } else if (contentType.includes("wav")) {
+      contentType = "audio/wav";
+    } else if (contentType.includes("mp3") || contentType.includes("mpeg")) {
+      contentType = "audio/mpeg";
+    }
+
+    // ── Hallucination Prevention Strategy ──
+    // 1. Use whisper-large-v3-turbo  → much less hallucination than v3 on short audio
+    // 2. NO prompt                   → long prompts cause Whisper to copy prompt text
+    //                                  instead of transcribing audio (root cause of your bug!)
+    // 3. temperature=0               → deterministic output, no random generation
+    // 4. response_format=verbose_json → gives us duration to validate length
     const form = new FormData();
     form.append("file", audioBuffer, {
       filename: audioFilename,
-      contentType: req.file.mimetype || "audio/webm",
+      contentType: contentType,
     });
-    form.append("model", "whisper-large-v3");
-    form.append("response_format", "json");
-    form.append("language", "en");
+    form.append("model", "whisper-large-v3-turbo");
+    form.append("response_format", "verbose_json");
+    form.append("temperature", "0");
 
     const whisperRes = await axios.post(
       "https://api.groq.com/openai/v1/audio/transcriptions",
@@ -41,10 +56,42 @@ export const transcribeAudio = async (req, res) => {
       }
     );
 
-    const transcript = whisperRes.data?.text || "";
+    const transcript = (whisperRes.data?.text || "").trim();
+    const audioDurationSecs = whisperRes.data?.duration || null;
 
-    if (!transcript.trim()) {
-      return res.status(400).json({ error: "Empty transcript — please re-record." });
+    console.log("[Whisper] transcript:", transcript);
+    console.log("[Whisper] duration:", audioDurationSecs, "s");
+
+    // ── Hallucination guard ──
+    // Known hallucinated phrases Whisper produces when audio is silent/unclear
+    const HALLUCINATION_PATTERNS = [
+      /^i'?m sorry\.?$/i,
+      /^thank you\.?$/i,
+      /^\[.*\]$/, // [BLANK_AUDIO], [Music], [silence]
+      /^\(.*\)$/, // (inaudible), (silence)
+      /^\.+$/,
+      /subtitle|subtitles|captions/i,
+    ];
+
+    const isKnownHallucination = HALLUCINATION_PATTERNS.some((p) =>
+      p.test(transcript)
+    );
+
+    // If we know the audio duration, check if transcript is suspiciously long
+    // Average speaking speed: ~2–3 words per second → ~10 chars/sec max
+    const isTooLong =
+      audioDurationSecs &&
+      transcript.length > audioDurationSecs * 15; // 15 chars/sec is very generous
+
+    const isEmpty = !transcript || transcript.replace(/[\s.,!?]/g, "").length < 3;
+
+    if (isEmpty || isKnownHallucination || isTooLong) {
+      console.warn("[Whisper] Hallucination detected:", { transcript, audioDurationSecs });
+      return res.status(400).json({
+        error:
+          "Audio was unclear or too short. Please speak clearly for at least 3 seconds and try again.",
+        detail: `Whisper returned: "${transcript}" (duration: ${audioDurationSecs}s)`,
+      });
     }
 
     res.json({ transcript });
@@ -153,53 +200,17 @@ Write a clear, simple clinical note and list any important questions the doctor 
 
     const noteData = JSON.parse(raw.substring(start, end + 1));
 
-    // Build clean, doctor-readable note
-    const warningList = (noteData.warning_signs || [])
-      .map((w) => `- ⚠️ ${w}`)
-      .join("\n");
+    // Enrich noteData with patient context
+    noteData._patient = {
+      name: patient?.name || "N/A",
+      age: patient?.age || "N/A",
+      gender: patient?.gender || "N/A",
+      bloodGroup: patient?.bloodGroup || "N/A",
+    };
 
-    const suggestedQs = (noteData.suggested_questions || [])
-      .map((q) => `- ${q}`)
-      .join("\n");
-
-    const soapNote = `# Consultation Note
-**Patient:** ${patient?.name || "N/A"} | Age: ${patient?.age || "N/A"} | Gender: ${patient?.gender || "N/A"} | Blood Group: ${patient?.bloodGroup || "N/A"}
-
----
-
-## 🗣️ What the Patient Said
-${noteData.what_patient_said}
-
-## 👁️ What Was Observed
-${noteData.what_was_observed}
-
-## 🩺 Likely Diagnosis
-${noteData.likely_diagnosis}
-
-## 💊 Treatment Plan
-${noteData.treatment_plan}
-
-**Medicines:** ${noteData.medications}
-
-**Follow-up:** ${noteData.follow_up}
-
----
-
-## ⚠️ Come Back Immediately If:
-${warningList}
-
----
-
-## 💡 Questions You Can Also Ask the Patient
-${suggestedQs || "- ✅ All key areas were covered in this consultation."}
-
----
-
-## 📋 Quick Summary
-${noteData.quick_summary}
-`;
-
-    const soapData = noteData; // keep backward compat
+    // Store structured data as JSON string in DB
+    const soapNote = JSON.stringify(noteData);
+    const soapData = noteData;
 
     res.json({ soapNote, soapData });
   } catch (err) {
@@ -219,7 +230,7 @@ export const saveConsultationDraft = async (req, res) => {
     if (!patientId) {
       return res.status(400).json({ error: "Patient ID required" });
     }
-
+    
     let doctorId = null;
     if (userId) {
       const doctor = await prisma.doctor.findUnique({
@@ -326,7 +337,7 @@ DO NOT include any questions for the doctor to ask. Keep everything simple and e
     const doctorName = existingNote?.doctor?.name || "Your Doctor";
     const date = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 
-    const formattedPatientNote = `👨‍⚕️ Note from ${doctorName} — ${date}\n\n${patientNote}`;
+    const formattedPatientNote = ` Note from ${doctorName} — ${date}\n\n${patientNote}`;
 
     // Save final approved note + patient note
     const note = await prisma.consultationNote.update({

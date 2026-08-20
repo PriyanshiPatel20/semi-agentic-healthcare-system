@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import API from "../api";
 import "../styles/patientDoctors.css";
 import ChatBox from "../components/ChatBox";
-import ReminderChatBox from "../components/ReminderChatBox";
+import { toast } from "react-toastify";
+
 import PatientNoteCard from "../components/PatientNoteCard";
 
 import * as XLSX from "xlsx";
@@ -12,6 +13,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 import { useNavigate } from "react-router-dom";
+import { FaArrowLeft, FaFileExcel, FaFilePdf } from "react-icons/fa";
 
 export default function PatientDoctors() {
 
@@ -108,9 +110,7 @@ export default function PatientDoctors() {
     try {
 
       if (!user) {
-
-        alert("Please login first");
-
+        toast.warning("Please login first");
         return;
       }
 
@@ -119,16 +119,12 @@ export default function PatientDoctors() {
       const selectedTime = selectedTimes[doctorId];
 
       if (!selectedDate) {
-
-        alert("Please select appointment date");
-
+        toast.warning("Please select appointment date");
         return;
       }
 
       if (!selectedTime) {
-
-        alert("Please select appointment time");
-
+        toast.warning("Please select appointment time");
         return;
       }
 
@@ -147,7 +143,7 @@ export default function PatientDoctors() {
         }
       );
 
-      alert("Appointment booked successfully");
+      toast.success("Appointment booked successfully!");
 
       setBookedDoctors((prev) => [
         ...prev,
@@ -159,12 +155,10 @@ export default function PatientDoctors() {
       ]);
 
     } catch (error) {
-
       console.log(error);
-
-      alert(
+      toast.error(
         error.response?.data?.error ||
-        "Booking failed"
+        "Booking failed. Please try again."
       );
     }
   };
@@ -316,35 +310,39 @@ export default function PatientDoctors() {
     <div className="page">
 
       {/* Reminder AI */}
-      <ReminderChatBox />
+
 
       {/* HEADER */}
-      <div className="header">
+      <div className="pd-header">
 
-        <h2>
-          Available Doctors
-        </h2>
+        <div className="pd-header-left">
+          <button
+            className="pd-back-btn"
+            onClick={() => navigate(-1)}
+          >
+            <FaArrowLeft />
+            Back
+          </button>
+          <h2 className="pd-title">Available Doctors</h2>
+        </div>
 
-        <button
-          className="back-btn"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
+        <div className="pd-header-right">
+          <button
+            className="pd-excel-btn"
+            onClick={exportToExcel}
+          >
+            <FaFileExcel />
+            Export Excel
+          </button>
 
-        <button
-          className="excel-btn"
-          onClick={exportToExcel}
-        >
-          Excel
-        </button>
-
-        <button
-          className="pdf-btn"
-          onClick={downloadPDF}
-        >
-          PDF
-        </button>
+          <button
+            className="pd-pdf-btn"
+            onClick={downloadPDF}
+          >
+            <FaFilePdf />
+            Export PDF
+          </button>
+        </div>
 
       </div>
 
@@ -519,9 +517,7 @@ export default function PatientDoctors() {
       <PatientNoteCard />
 
       {/* AI CHAT */}
-      <div className="patients-page">
-        <ChatBox />
-      </div>
+      <ChatBox />
 
     </div>
   );

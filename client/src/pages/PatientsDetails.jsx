@@ -131,11 +131,14 @@ export default function Patients() {
             Next
           </button>
         </div>
-        <div className="patients-page">
-          <DoctorChatBox patient={selectedPatient} />
-          <ConsultationNote patient={selectedPatient} />
-        </div>
       </div>
+
+      {selectedPatient && (
+        <div className="patient-actions-section">
+          <ConsultationNote patient={selectedPatient} />
+          <DoctorChatBox patient={selectedPatient} />
+        </div>
+      )}
     </div>
   );
 

@@ -16,17 +16,34 @@ export const bookAppointmentByPatient = async (req, res) => {
       return res.status(404).json({ error: "Patient not found" });
     }
 
-    const existingAppointment = await prisma.appointment.findFirst({
+    // Check if THIS patient already booked this doctor (any time on that date)
+    const patientExisting = await prisma.appointment.findFirst({
       where: {
         patientId: patient.id,
         doctorId: Number(doctorId),
         date: new Date(date),
-         time,
-      }
+      },
     });
 
-    if (existingAppointment) {
-      return res.status(400).json({ error: "Appointment already exists for this patient and doctor on the selected date" });
+    if (patientExisting) {
+      return res.status(409).json({
+        error: "You have already booked an appointment with this doctor on the selected date.",
+      });
+    }
+
+    // Check if the DOCTOR's time slot is already taken by another patient
+    const slotTaken = await prisma.appointment.findFirst({
+      where: {
+        doctorId: Number(doctorId),
+        date: new Date(date),
+        time: time,
+      },
+    });
+
+    if (slotTaken) {
+      return res.status(409).json({
+        error: "This time slot is already booked for this doctor. Please choose a different date or time.",
+      });
     }
 
     const appointment = await prisma.appointment.create({

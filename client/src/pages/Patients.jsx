@@ -268,7 +268,7 @@ export default function Patients() {
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
         </div>
-        <div className="from-group">
+        <div className="form-group">
           <input
             placeholder="Medical Notes"
             value={form.medicalNotes}

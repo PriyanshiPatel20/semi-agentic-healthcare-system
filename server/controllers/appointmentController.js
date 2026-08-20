@@ -3,12 +3,13 @@ import prisma from "../prisma/client.js";
 // BOOK APPOINTMENT
 export const createAppointment = async (req, res) => {
   try {
-    const { patientId, doctorId, date } = req.body;
+    const { patientId, doctorId, date, time } = req.body;
     const appointment = await prisma.appointment.create({
       data: {
         patientId: Number(patientId),
         doctorId: Number(doctorId),
         date: new Date(date),
+        time: time || null,
       },
     });
     res.status(201).json(appointment);
@@ -47,6 +48,22 @@ export const getAppointments = async (req, res) => {
       // show only this doctor's appointments
       whereCondition = {
         doctorId: doctor.id
+      };
+    } else if (role === "patient") {
+      // find patient using logged-in userId
+      const patient = await prisma.patient.findUnique({
+        where: { userId }
+      });
+
+      if (!patient) {
+        return res.status(404).json({
+          error: "Patient not found"
+        });
+      }
+
+      // show only this patient's appointments
+      whereCondition = {
+        patientId: patient.id
       };
     }
 

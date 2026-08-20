@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import API from "../api";
 import "./patientNote.css";
+import {
+  FaClipboardList, FaHospital, FaTimesCircle,
+  FaCheckCircle, FaArrowRight, FaPills,
+} from "react-icons/fa";
+import { MdLocalHospital } from "react-icons/md";
 
 export default function PatientNoteCard() {
   const [notes, setNotes] = useState([]);
@@ -9,17 +14,12 @@ export default function PatientNoteCard() {
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  useEffect(() => {
-    fetchMyNotes();
-  }, []);
+  useEffect(() => { fetchMyNotes(); }, []);
 
   const fetchMyNotes = async () => {
     try {
       const res = await API.get("/consultation-notes/my-notes", {
-        headers: {
-          role: user.role,
-          userid: user.id,
-        },
+        headers: { role: user.role, userid: user.id },
       });
       setNotes(res.data || []);
     } catch (err) {
@@ -36,12 +36,10 @@ export default function PatientNoteCard() {
       {/* NOTES SECTION */}
       <div className="pnc-wrapper">
         <div className="pnc-header">
-          <span className="pnc-header-icon">📋</span>
+          <span className="pnc-header-icon"><FaClipboardList /></span>
           <div>
             <h3 className="pnc-title">Your Health Notes</h3>
-            <p className="pnc-subtitle">
-              Notes from your doctors after your consultations
-            </p>
+            <p className="pnc-subtitle">Notes from your doctors after your consultations</p>
           </div>
         </div>
 
@@ -53,24 +51,22 @@ export default function PatientNoteCard() {
                   {note.doctor?.name?.[0] || "D"}
                 </div>
                 <div>
-                  <div className="pnc-doctor-name">
-                    {note.doctor?.name || "Your Doctor"}
-                  </div>
-                  <div className="pnc-doctor-specialty">
-                    {note.doctor?.specialty || "Specialist"}
-                  </div>
+                  <div className="pnc-doctor-name">{note.doctor?.name || "Your Doctor"}</div>
+                  <div className="pnc-doctor-specialty">{note.doctor?.specialty || "Specialist"}</div>
                   <div className="pnc-date">
                     {new Date(note.updatedAt).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
+                      day: "numeric", month: "short", year: "numeric",
                     })}
                   </div>
                 </div>
               </div>
               <div className="pnc-card-right">
-                <span className="pnc-approved-badge">✅ Approved</span>
-                <button className="pnc-view-btn">View Note →</button>
+                <span className="pnc-approved-badge">
+                  <FaCheckCircle style={{ marginRight: 4 }} /> Approved
+                </span>
+                <button className="pnc-view-btn">
+                  View Note <FaArrowRight style={{ marginLeft: 4 }} />
+                </button>
               </div>
             </div>
           ))}
@@ -87,7 +83,7 @@ export default function PatientNoteCard() {
             {/* Modal Header */}
             <div className="pnc-modal-header">
               <div className="pnc-modal-header-left">
-                <div className="pnc-modal-icon">🏥</div>
+                <div className="pnc-modal-icon"><MdLocalHospital /></div>
                 <div>
                   <h2 className="pnc-modal-title">Your Health Note</h2>
                   <p className="pnc-modal-doctor">
@@ -96,19 +92,13 @@ export default function PatientNoteCard() {
                   </p>
                   <p className="pnc-modal-date">
                     {new Date(selectedNote.updatedAt).toLocaleDateString("en-IN", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
+                      weekday: "long", day: "numeric", month: "long", year: "numeric",
                     })}
                   </p>
                 </div>
               </div>
-              <button
-                className="pnc-modal-close"
-                onClick={() => setSelectedNote(null)}
-              >
-                ✕
+              <button className="pnc-modal-close" onClick={() => setSelectedNote(null)}>
+                <FaTimesCircle />
               </button>
             </div>
 
@@ -120,17 +110,7 @@ export default function PatientNoteCard() {
                   .map((line, i) => {
                     const trimmed = line.trim();
                     if (!trimmed) return <br key={i} />;
-
-                    // Bold first line (doctor header)
-                    if (i === 0) {
-                      return (
-                        <div key={i} className="pnc-note-from">
-                          {trimmed}
-                        </div>
-                      );
-                    }
-
-                    // Bullet points
+                    if (i === 0) return <div key={i} className="pnc-note-from">{trimmed}</div>;
                     if (trimmed.startsWith("•") || trimmed.startsWith("-") || trimmed.startsWith("*")) {
                       return (
                         <div key={i} className="pnc-note-bullet">
@@ -139,8 +119,6 @@ export default function PatientNoteCard() {
                         </div>
                       );
                     }
-
-                    // Numbered points
                     if (/^\d+\./.test(trimmed)) {
                       const [num, ...rest] = trimmed.split(". ");
                       return (
@@ -150,28 +128,18 @@ export default function PatientNoteCard() {
                         </div>
                       );
                     }
-
-                    // Section-like lines (short, ends without period)
                     if (trimmed.length < 60 && !trimmed.endsWith(".")) {
-                      return (
-                        <div key={i} className="pnc-note-section">
-                          {trimmed}
-                        </div>
-                      );
+                      return <div key={i} className="pnc-note-section">{trimmed}</div>;
                     }
-
-                    return (
-                      <p key={i} className="pnc-note-para">
-                        {trimmed}
-                      </p>
-                    );
+                    return <p key={i} className="pnc-note-para">{trimmed}</p>;
                   })}
               </div>
 
               {/* Footer */}
               <div className="pnc-modal-footer">
                 <div className="pnc-footer-tip">
-                  💊 Follow your doctor's instructions and take medicines as prescribed.
+                  <FaPills style={{ marginRight: 6 }} />
+                  Follow your doctor's instructions and take medicines as prescribed.
                   If you have any questions, contact your doctor.
                 </div>
               </div>

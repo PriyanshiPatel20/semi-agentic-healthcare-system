@@ -5,11 +5,12 @@ export const chatWithAI = async (req, res) => {
     const { message } = req.body;
     let patientId = null;
 
-    if (req.user) {
+    // Get patient using userid header (same auth pattern as rest of app)
+    const userId = Number(req.headers.userid);
+    if (userId) {
       const patient = await prisma.patient.findUnique({
-        where: { userId: req.user.id },
+        where: { userId },
       });
-
       patientId = patient?.id || null;
     }
 
@@ -128,23 +129,54 @@ export const chatWithAI = async (req, res) => {
 };
 export const getChats = async (req, res) => {
   try {
-    let patientId = null;
+    // Get patient using userid header (same auth pattern as rest of app)
+    const userId = Number(req.headers.userid);
 
-    if (req.user) {
-      const patient = await prisma.patient.findUnique({
-        where: { userId: req.user.id },
-      });
+    if (!userId) {
+      return res.status(400).json({ error: "User ID required" });
+    }
 
-      patientId = patient?.id || null;
+    const patient = await prisma.patient.findUnique({
+      where: { userId },
+    });
+
+    if (!patient) {
+      return res.status(404).json({ error: "Patient not found" });
     }
 
     const chats = await prisma.chat.findMany({
-      where: { patientId },
-      orderBy: { createdAt: "desc" },
+      where: { patientId: patient.id },
+      orderBy: { createdAt: "asc" },
     });
 
     res.json(chats);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch chats" });
+  }
+};
+
+export const clearChats = async (req, res) => {
+  try {
+    const userId = Number(req.headers.userid);
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID required" });
+    }
+
+    const patient = await prisma.patient.findUnique({
+      where: { userId },
+    });
+
+    if (!patient) {
+      return res.status(404).json({ error: "Patient not found" });
+    }
+
+    await prisma.chat.deleteMany({
+      where: { patientId: patient.id },
+    });
+
+    res.json({ message: "Chat history cleared successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to clear chats" });
   }
 };

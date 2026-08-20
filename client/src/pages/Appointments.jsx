@@ -2,11 +2,18 @@ import { useEffect, useState } from "react";
 import API from "../api";
 import "../styles/appointment.css";
 import { useNavigate } from "react-router-dom";
-import DoctorReminderBox
-from "../components/DoctorReminderBox";
+
 
 export default function Appointments() {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  useEffect(() => {
+    if (user?.role === "patient") {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
+
   const [errors, setErrors] = useState({});
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -21,22 +28,30 @@ export default function Appointments() {
     patientId: "",
     doctorId: "",
     date: "",
+    time: "",
   });
 
   const fetchPatients = async () => {
     try {
+      if (!user) return;
 
-      const user = JSON.parse(localStorage.getItem("user"));
-
-      const res = await API.get("/patients", {
-        headers: {
-          role: user.role,
-          userid: user.id,
-        },
-      });
-
-      setPatients(res.data);
-
+      if (user.role === "patient") {
+        const res = await API.get("/patients/profile", {
+          headers: {
+            role: user.role,
+            userid: user.id,
+          },
+        });
+        setForm((prev) => ({ ...prev, patientId: res.data.id }));
+      } else {
+        const res = await API.get("/patients", {
+          headers: {
+            role: user.role,
+            userid: user.id,
+          },
+        });
+        setPatients(res.data);
+      }
     } catch (error) {
       console.log(error);
     }
@@ -49,7 +64,7 @@ export default function Appointments() {
 
   const fetchAppointments = async () => {
     try {
-      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user) return;
 
       const res = await API.get(
         `/appointments?page=${page}&limit=${limit}`,
@@ -84,6 +99,7 @@ export default function Appointments() {
     if (!form.patientId) newErrors.patientId = "Patient is required";
     if (!form.doctorId) newErrors.doctorId = "Doctor is required";
     if (!form.date) newErrors.date = "Date is required";
+    if (!form.time) newErrors.time = "Time is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -92,8 +108,6 @@ export default function Appointments() {
   const handleCreate = async () => {
     try {
       if (!validate()) return;
-
-      const user = JSON.parse(localStorage.getItem("user"));
 
       if (!user) {
         alert("Please login first");
@@ -105,7 +119,12 @@ export default function Appointments() {
       });
 
       fetchAppointments();
-      setForm({ patientId: "", doctorId: "", date: "" });
+      setForm({
+        patientId: user.role === "patient" ? form.patientId : "",
+        doctorId: "",
+        date: "",
+        time: "",
+      });
       setErrors({});
     } catch (error) {
       console.log("CREATE APPOINTMENT ERROR:", error);
@@ -129,23 +148,25 @@ export default function Appointments() {
 
       {/* Form */}
       <div className="form">
-        <div className="form-group">
-          <select
-            value={form.patientId}
-            onChange={(e) => {
-              setForm({ ...form, patientId: e.target.value });
-              setErrors({ ...errors, patientId: "" });
-            }}
-          >
-            <option value="">Select Patient</option>
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          {errors.patientId && <span className="error">{errors.patientId}</span>}
-        </div>
+        {user?.role !== "patient" && (
+          <div className="form-group">
+            <select
+              value={form.patientId}
+              onChange={(e) => {
+                setForm({ ...form, patientId: e.target.value });
+                setErrors({ ...errors, patientId: "" });
+              }}
+            >
+              <option value="">Select Patient</option>
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {errors.patientId && <span className="error">{errors.patientId}</span>}
+          </div>
+        )}
 
         <div className="form-group">
           <select
@@ -177,6 +198,18 @@ export default function Appointments() {
           {errors.date && <span className="error">{errors.date}</span>}
         </div>
 
+        <div className="form-group">
+          <input
+            type="time"
+            value={form.time}
+            onChange={(e) => {
+              setForm({ ...form, time: e.target.value });
+              setErrors({ ...errors, time: "" });
+            }}
+          />
+          {errors.time && <span className="error">{errors.time}</span>}
+        </div>
+
         <button onClick={handleCreate}>Book</button>
       </div>
 
@@ -188,22 +221,24 @@ export default function Appointments() {
           <table>
             <thead>
               <tr>
-                <th>Patient</th>
-                <th>Email</th>
+                {user?.role !== "patient" && <th>Patient</th>}
+                {user?.role !== "patient" && <th>Email</th>}
                 <th>Doctor</th>
                 <th>Date</th>
+                <th>Time</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {appointments.map((a) => (
                 <tr key={a.id}>
-                  <td>{a.patient?.name}</td>
-                  <td>{a.patient?.user?.email}</td>
+                  {user?.role !== "patient" && <td>{a.patient?.name}</td>}
+                  {user?.role !== "patient" && <td>{a.patient?.user?.email}</td>}
                   <td>
                     {a.doctor?.name} ({a.doctor?.specialty})
                   </td>
                   <td>{new Date(a.date).toDateString()}</td>
+                  <td>{a.time || "—"}</td>
                   <td>
                     <span className="status">Scheduled</span>
                   </td>
@@ -213,7 +248,7 @@ export default function Appointments() {
           </table>
         )}
       </div>
-        <DoctorReminderBox />
+
 
       {/*  Pagination Controls */}
       <div className="pagination">
