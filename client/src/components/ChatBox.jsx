@@ -125,6 +125,8 @@ export default function ChatBox() {
         formattedChats.push({
           type: "bot",
           text: c.reply,
+          doctor: c.doctor,
+          askBooking: !!c.doctor,
         });
       });
 

@@ -1,5 +1,35 @@
 import prisma from "../prisma/client.js";
 import axios from "axios";
+
+const normalizeSpecialty = (value = "") =>
+  value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const formatDoctor = (doctor) =>
+  doctor && {
+    id: doctor.id,
+    name: doctor.name,
+    specialty: doctor.specialty,
+    mobile: doctor.mobile,
+    experience: doctor.experience,
+  };
+
+// The model can return punctuation or a closely related word (for example,
+// "Cardiologist" when the database contains "Cardiology"). Match against the
+// specialties that are actually configured by the admin instead of querying
+// the raw model output.
+const findSuggestedDoctor = (doctors, detectedSpecialty) => {
+  const detected = normalizeSpecialty(detectedSpecialty);
+
+  return doctors.find((doctor) => {
+    const specialty = normalizeSpecialty(doctor.specialty);
+    return (
+      specialty === detected ||
+      specialty.includes(detected) ||
+      detected.includes(specialty)
+    );
+  });
+};
+
 export const chatWithAI = async (req, res) => {
   try {
     const { message } = req.body;
@@ -44,6 +74,14 @@ export const chatWithAI = async (req, res) => {
     const reply =
       response.data?.choices?.[0]?.message?.content || "No response";
 
+    // Use the specialties in the database as the model's allowed choices.
+    // This prevents a valid recommendation being lost because its wording does
+    // not exactly match the specialty entered in Doctor Management.
+    const doctors = await prisma.doctor.findMany();
+    const availableSpecialties = [
+      ...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)),
+    ];
+
     // AI SPECIALTY DETECTION
     const specialtyResponse = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -57,20 +95,11 @@ export const chatWithAI = async (req, res) => {
 
               Based on patient symptoms, return ONLY the most suitable doctor specialty.
 
-              Allowed specialties:
-              - Cardiologist
-              - Dermatologist
-              - General Physician
-              - Orthopedic
-              - Neurologist
-              - Gastroenterologist
-              - Pediatrician
-              - Psychiatrist
-              - Oncologist
-              - Gynecologist
-              - Ophthalmologist
+              Available specialties in this hospital:
+              ${availableSpecialties.map((specialty) => `- ${specialty}`).join("\n") || "- General Physician"}
 
-              Return only specialty name.
+              Return exactly one specialty from the available list. If no
+              specialty is clearly suitable, return the closest available one.
               No explanation.
                       `,
           },
@@ -88,15 +117,13 @@ export const chatWithAI = async (req, res) => {
       }
     );
 
-    const specialty =
+    const detectedSpecialty =
       specialtyResponse.data?.choices?.[0]?.message?.content?.trim() ||
       "General Physician";
-    // FIND DOCTOR
-    const doctor = await prisma.doctor.findFirst({
-      where: {
-        specialty: { contains: specialty },
-      },
-    });
+    const doctor = findSuggestedDoctor(doctors, detectedSpecialty);
+    // Store the selected doctor's real specialty so old messages can be
+    // rendered with the same recommendation after a page refresh.
+    const specialty = doctor?.specialty || detectedSpecialty;
 
     // SAVE CHAT IN DB
     await prisma.chat.create({
@@ -111,15 +138,7 @@ export const chatWithAI = async (req, res) => {
     // RESPONSE
     res.json({
       reply,
-      doctor: doctor
-        ? {
-          id: doctor.id,
-          name: doctor.name,
-          specialty: doctor.specialty,
-          mobile: doctor.mobile,
-          experience: doctor.experience,
-        }
-        : null,
+      doctor: formatDoctor(doctor),
     });
 
   } catch (error) {
@@ -149,7 +168,13 @@ export const getChats = async (req, res) => {
       orderBy: { createdAt: "asc" },
     });
 
-    res.json(chats);
+    const doctors = await prisma.doctor.findMany();
+    res.json(
+      chats.map((chat) => ({
+        ...chat,
+        doctor: formatDoctor(findSuggestedDoctor(doctors, chat.specialty)),
+      }))
+    );
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch chats" });
   }
