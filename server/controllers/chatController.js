@@ -54,15 +54,22 @@ export const chatWithAI = async (req, res) => {
     const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
     const GEMINI_MODEL = "gemini-3.6-flash";
 
-    const response = await axios.post(
-      `${GEMINI_BASE}/chat/completions`,
-      {
-        model: GEMINI_MODEL,
-        response_format: { type: "json_object" },
-        messages: [
+    let rawContent = "{}";
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        const response = await axios.post(
+          `${GEMINI_BASE}/chat/completions`,
           {
-            role: "system",
-            content: `You are a medical assistant for a healthcare application.
+            model: GEMINI_MODEL,
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "system",
+                content: `You are a medical assistant for a healthcare application.
 
 Your job is to answer ONLY questions related to:
 - Health
@@ -121,20 +128,34 @@ You MUST output a valid JSON object with EXACTLY two fields:
   "reply": "Your medical answer or warning",
   "specialty": "The detected specialty name"
 }`,
+              },
+              { role: "user", content: message },
+            ],
           },
-          { role: "user", content: message },
-        ],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 15000,
+          }
+        );
 
-    const rawContent =
-      response.data?.choices?.[0]?.message?.content || "{}";
+        rawContent = response.data?.choices?.[0]?.message?.content || "{}";
+        break; // Success, exit retry loop
+      } catch (err) {
+        console.log(`AI Chat Attempt ${attempts} Error:`, err?.response?.data || err.message);
+        if (attempts >= maxAttempts) {
+          rawContent = JSON.stringify({
+            reply: "The AI service is temporarily busy. Please try asking your health question again.",
+            specialty: "General Physician"
+          });
+        } else {
+          // Short delay before retry
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    }
 
     // Parse the structured JSON response from single AI prompt
     let reply = "Please state your health concerns or symptoms clearly.";
@@ -167,8 +188,8 @@ You MUST output a valid JSON object with EXACTLY two fields:
     });
 
   } catch (error) {
-    console.log("AI Chat Error:", error?.response?.data || error.message);
-    res.status(500).json({ error: "AI failed" });
+    console.log("Chat Controller Error:", error);
+    res.status(500).json({ error: "Failed to process chat" });
   }
 };
 
