@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import API from "../api";
 import "../styles/chatbox.css";
 import { FaComment } from "react-icons/fa";
@@ -13,6 +13,18 @@ export default function ChatBox() {
   const [selectedTime, setSelectedTime] = useState("");
   const [activeDoctorId, setActiveDoctorId] = useState(null);
 
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom();
+    }
+  }, [chat, loading, isOpen]);
+
   const sendMessage = async () => {
     if (!message.trim()) return;
     const user = JSON.parse(localStorage.getItem("user"));
@@ -26,7 +38,7 @@ export default function ChatBox() {
         "/chat",
         { message },
         {
-          headers: { role: "patient", userid: user.id, },
+          headers: { role: "patient", userid: user.id },
         }
       );
 
@@ -102,6 +114,7 @@ export default function ChatBox() {
       toast.error(errMsg);
     }
   };
+
   const fetchChats = async () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
@@ -149,7 +162,7 @@ export default function ChatBox() {
         },
       });
       setChat([]);
-      toast.success("Chat history cleared! ");
+      toast.success("Chat history cleared!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to clear chat history.");
@@ -164,8 +177,7 @@ export default function ChatBox() {
     <>
       {/* Floating Chat Icon */}
       <div className="chat-icon" onClick={() => setIsOpen(!isOpen)}>
-        
-  <FaComment />
+        <FaComment />
       </div>
 
       {/* Chatbox */}
@@ -174,7 +186,9 @@ export default function ChatBox() {
           <div className="doctor-ai-header">
             <span>AI Assistant</span>
             {chat.length > 0 && (
-              <button className="clear-chat-btn" onClick={clearChatHistory}>Clear Chat</button>
+              <button className="clear-chat-btn" onClick={clearChatHistory}>
+                Clear Chat
+              </button>
             )}
           </div>
           <div className="messages">
@@ -218,23 +232,19 @@ export default function ChatBox() {
                       </div>
                     )}
 
-                    {/*  DATE + TIME PICKER */}
+                    {/* DATE + TIME PICKER */}
                     {activeDoctorId === c.doctor.id && (
                       <div className="date-picker">
                         <input
                           type="date"
                           value={selectedDate}
-                          onChange={(e) =>
-                            setSelectedDate(e.target.value)
-                          }
+                          onChange={(e) => setSelectedDate(e.target.value)}
                         />
 
                         <input
                           type="time"
                           value={selectedTime}
-                          onChange={(e) =>
-                            setSelectedTime(e.target.value)
-                          }
+                          onChange={(e) => setSelectedTime(e.target.value)}
                         />
 
                         <button
@@ -256,6 +266,7 @@ export default function ChatBox() {
             ))}
 
             {loading && <div className="msg bot">Typing...</div>}
+            <div ref={messagesEndRef} />
           </div>
 
           <div className="input-area">
@@ -263,9 +274,7 @@ export default function ChatBox() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Describe your symptoms..."
-              onKeyDown={(e) =>
-                e.key === "Enter" && sendMessage()
-              }
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             />
             <button onClick={sendMessage}>Send</button>
           </div>

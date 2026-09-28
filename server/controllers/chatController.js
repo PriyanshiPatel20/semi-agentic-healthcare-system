@@ -31,18 +31,17 @@ const findSuggestedDoctor = (doctors, detectedSpecialty) => {
 export const chatWithAI = async (req, res) => {
   try {
     const { message } = req.body;
-    let patientId = null;
-
-    // Get patient using userid header (same auth pattern as rest of app)
     const userId = Number(req.headers.userid);
-    if (userId) {
-      const patient = await prisma.patient.findUnique({
-        where: { userId },
-      });
-      patientId = patient?.id || null;
-    }
 
-    // Load last 7 messages from chat history for context memory
+    // Parallel DB fetch for speed
+    const [doctors, patient] = await Promise.all([
+      prisma.doctor.findMany(),
+      userId ? prisma.patient.findUnique({ where: { userId } }) : null,
+    ]);
+
+    const patientId = patient?.id || null;
+
+    // Load last 7 chat messages for memory context
     let conversationHistory = [];
     if (patientId) {
       const pastChats = await prisma.chat.findMany({
@@ -50,8 +49,7 @@ export const chatWithAI = async (req, res) => {
         orderBy: { createdAt: "desc" },
         take: 7,
       });
-      // Sort chronologically (oldest to newest)
-      pastChats.reverse();
+      pastChats.reverse(); // Chronological order
 
       for (const chat of pastChats) {
         if (chat.message) {
@@ -63,8 +61,6 @@ export const chatWithAI = async (req, res) => {
       }
     }
 
-    // Fetch available specialties from DB before the AI call
-    const doctors = await prisma.doctor.findMany();
     const availableSpecialties = [
       ...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)),
     ];
@@ -72,69 +68,23 @@ export const chatWithAI = async (req, res) => {
       ? availableSpecialties.join(", ")
       : "General Physician";
 
-    // SINGLE AI CALL (Gemini 3.6 Flash) - Structured JSON output with history
+    // Fast Single AI Call with token limit
     const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
     const GEMINI_MODEL = "gemini-3.6-flash";
 
-    const systemPrompt = `You are a medical assistant for a healthcare application.
+    const systemPrompt = `You are a medical assistant.
+RULES:
+1. HEALTH/SYMPTOMS: Answer concisely (max 40 words). Set "isMedical": true. Pick 1 specialty from: ${specialtyList}.
+2. MEDICINE: Explain general purpose concisely. Do NOT give prescriptions/dosages. Set "isMedical": true.
+3. NON-MEDICAL / RANDOM: Set "reply" to EXACTLY: "Please state your health concerns or symptoms clearly.", "isMedical": false, "specialty": null.
+4. SAFETY: For severe/urgent symptoms, advise urgent medical evaluation.
+5. CONTEXT: Remember previous conversation messages.
 
-Your job is to answer ONLY questions related to:
-- Health
-- Symptoms
-- Diseases and medical conditions
-- Medicines and medication-related questions
-- Medical reports and test results
-- Treatments and general healthcare information
-- Appointments or follow-up questions related to healthcare
-
-IMPORTANT RULES:
-
-1. HEALTH-RELATED QUESTIONS
-- If the user's question is related to health, symptoms, medicine, treatment, or medical information, answer clearly and briefly.
-- Use simple, easy-to-understand language.
-- Do not use unnecessary medical jargon.
-- Answer only what the user asked.
-- Do not add unrelated health advice.
-- Set "isMedical" to true.
-
-2. MEDICINE QUESTIONS
-- If the user asks about a medicine, explain its general purpose, common uses, or general information.
-- Do not tell the user to start, stop, increase, or decrease a medicine unless this information is already explicitly provided by their doctor.
-- Do not invent medicine names, dosages, or prescriptions.
-- Set "isMedical" to true.
-
-3. NON-MEDICAL OR RANDOM INPUT
-- If the user's message is random, meaningless, unclear, or unrelated to health or medicine, DO NOT provide health tips, wellness advice, nutrition advice, exercise advice, sleep advice, or other medical information.
-- Set "reply" to EXACTLY: "Please state your health concerns or symptoms clearly."
-- Set "isMedical" to false.
-- Set "specialty" to null.
-
-4. DOCTOR RECOMMENDATION
-- Do NOT automatically recommend seeing a doctor in text.
-- If "isMedical" is true, pick the most suitable doctor specialty from available list: ${specialtyList}.
-- If "isMedical" is false, set "specialty" to null.
-
-5. RESPONSE FORMAT & CONVERSATION CONTEXT
-- Maintain conversation memory across past messages to provide contextual answers.
-- Keep responses concise and directly related to the user's question.
-- Do not greet the user unless they greet you first.
-- Do not provide general wellness tips unless the user specifically asks for them.
-- Do not repeat the user's question.
-- Do not add unnecessary disclaimers.
-- Do not add unrelated suggestions.
-- Never answer a random or meaningless message with general health advice.
-
-6. SAFETY
-- Never diagnose a condition with certainty from limited information.
-- Never invent medical facts, medicines, dosages, test results, or patient information.
-- If the user describes potentially urgent or severe symptoms, clearly explain that urgent medical evaluation may be appropriate.
-
-OUTPUT FORMAT:
-You MUST output a valid JSON object with EXACTLY these fields:
+JSON OUTPUT ONLY:
 {
-  "reply": "Your medical answer or warning, or 'Please state your health concerns or symptoms clearly.'",
+  "reply": "concise answer",
   "isMedical": true or false,
-  "specialty": "Suggested specialty from available list if isMedical is true, or null if isMedical is false"
+  "specialty": "Specialty name or null"
 }`;
 
     const apiMessages = [
@@ -145,7 +95,7 @@ You MUST output a valid JSON object with EXACTLY these fields:
 
     let rawContent = "{}";
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 2;
 
     while (attempts < maxAttempts) {
       try {
@@ -156,33 +106,34 @@ You MUST output a valid JSON object with EXACTLY these fields:
             model: GEMINI_MODEL,
             response_format: { type: "json_object" },
             messages: apiMessages,
+            max_tokens: 250,
           },
           {
             headers: {
               Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
               "Content-Type": "application/json",
             },
-            timeout: 15000,
+            timeout: 7000,
           }
         );
 
         rawContent = response.data?.choices?.[0]?.message?.content || "{}";
-        break; // Success
+        break;
       } catch (err) {
         console.log(`AI Chat Attempt ${attempts} Error:`, err?.response?.data || err.message);
         if (attempts >= maxAttempts) {
           rawContent = JSON.stringify({
             reply: "The AI service is temporarily busy. Please try asking your health question again.",
             isMedical: false,
-            specialty: null
+            specialty: null,
           });
         } else {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 400));
         }
       }
     }
 
-    // Parse the structured JSON response
+    // Parse AI response
     let reply = "Please state your health concerns or symptoms clearly.";
     let detectedSpecialty = null;
     let isMedical = false;
@@ -211,7 +162,7 @@ You MUST output a valid JSON object with EXACTLY these fields:
       }
     }
 
-    // SAVE CHAT IN DB
+    // Save in DB asynchronously
     await prisma.chat.create({
       data: {
         message,
@@ -221,7 +172,6 @@ You MUST output a valid JSON object with EXACTLY these fields:
       },
     });
 
-    // RESPONSE
     res.json({
       reply,
       doctor: doctor || null,
