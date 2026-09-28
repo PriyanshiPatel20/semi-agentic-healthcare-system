@@ -15,6 +15,7 @@ const formatDoctor = (doctor) =>
 
 // Match detected specialty against database specialties
 const findSuggestedDoctor = (doctors, detectedSpecialty) => {
+  if (!detectedSpecialty) return null;
   const detected = normalizeSpecialty(detectedSpecialty);
 
   return doctors.find((doctor) => {
@@ -41,6 +42,27 @@ export const chatWithAI = async (req, res) => {
       patientId = patient?.id || null;
     }
 
+    // Load last 7 messages from chat history for context memory
+    let conversationHistory = [];
+    if (patientId) {
+      const pastChats = await prisma.chat.findMany({
+        where: { patientId },
+        orderBy: { createdAt: "desc" },
+        take: 7,
+      });
+      // Sort chronologically (oldest to newest)
+      pastChats.reverse();
+
+      for (const chat of pastChats) {
+        if (chat.message) {
+          conversationHistory.push({ role: "user", content: chat.message });
+        }
+        if (chat.reply) {
+          conversationHistory.push({ role: "assistant", content: chat.reply });
+        }
+      }
+    }
+
     // Fetch available specialties from DB before the AI call
     const doctors = await prisma.doctor.findMany();
     const availableSpecialties = [
@@ -50,26 +72,11 @@ export const chatWithAI = async (req, res) => {
       ? availableSpecialties.join(", ")
       : "General Physician";
 
-    // SINGLE AI CALL (Gemini 3.6 Flash) - Structured JSON output
+    // SINGLE AI CALL (Gemini 3.6 Flash) - Structured JSON output with history
     const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
     const GEMINI_MODEL = "gemini-3.6-flash";
 
-    let rawContent = "{}";
-    let attempts = 0;
-    const maxAttempts = 3;
-
-    while (attempts < maxAttempts) {
-      try {
-        attempts++;
-        const response = await axios.post(
-          `${GEMINI_BASE}/chat/completions`,
-          {
-            model: GEMINI_MODEL,
-            response_format: { type: "json_object" },
-            messages: [
-              {
-                role: "system",
-                content: `You are a medical assistant for a healthcare application.
+    const systemPrompt = `You are a medical assistant for a healthcare application.
 
 Your job is to answer ONLY questions related to:
 - Health
@@ -88,22 +95,27 @@ IMPORTANT RULES:
 - Do not use unnecessary medical jargon.
 - Answer only what the user asked.
 - Do not add unrelated health advice.
+- Set "isMedical" to true.
 
 2. MEDICINE QUESTIONS
 - If the user asks about a medicine, explain its general purpose, common uses, or general information.
 - Do not tell the user to start, stop, increase, or decrease a medicine unless this information is already explicitly provided by their doctor.
 - Do not invent medicine names, dosages, or prescriptions.
+- Set "isMedical" to true.
 
 3. NON-MEDICAL OR RANDOM INPUT
 - If the user's message is random, meaningless, unclear, or unrelated to health or medicine, DO NOT provide health tips, wellness advice, nutrition advice, exercise advice, sleep advice, or other medical information.
 - Set "reply" to EXACTLY: "Please state your health concerns or symptoms clearly."
+- Set "isMedical" to false.
+- Set "specialty" to null.
 
 4. DOCTOR RECOMMENDATION
-- Do NOT automatically recommend seeing a doctor.
-- Only mention consulting a doctor when it is relevant to the user's specific health question, symptoms, medicine, or situation.
-- Do not add phrases such as "Please consult a doctor" to normal health questions unless there is a specific reason.
+- Do NOT automatically recommend seeing a doctor in text.
+- If "isMedical" is true, pick the most suitable doctor specialty from available list: ${specialtyList}.
+- If "isMedical" is false, set "specialty" to null.
 
-5. RESPONSE FORMAT
+5. RESPONSE FORMAT & CONVERSATION CONTEXT
+- Maintain conversation memory across past messages to provide contextual answers.
 - Keep responses concise and directly related to the user's question.
 - Do not greet the user unless they greet you first.
 - Do not provide general wellness tips unless the user specifically asks for them.
@@ -117,20 +129,33 @@ IMPORTANT RULES:
 - Never invent medical facts, medicines, dosages, test results, or patient information.
 - If the user describes potentially urgent or severe symptoms, clearly explain that urgent medical evaluation may be appropriate.
 
-7. SPECIALTY RECOMMENDATION
-- Detect the relevant doctor specialty for the patient's concern.
-- Pick exactly one specialty from the available hospital list: ${specialtyList}
-- If no specialty is suitable or the query is non-medical, pick "General Physician".
-
 OUTPUT FORMAT:
-You MUST output a valid JSON object with EXACTLY two fields:
+You MUST output a valid JSON object with EXACTLY these fields:
 {
-  "reply": "Your medical answer or warning",
-  "specialty": "The detected specialty name"
-}`,
-              },
-              { role: "user", content: message },
-            ],
+  "reply": "Your medical answer or warning, or 'Please state your health concerns or symptoms clearly.'",
+  "isMedical": true or false,
+  "specialty": "Suggested specialty from available list if isMedical is true, or null if isMedical is false"
+}`;
+
+    const apiMessages = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistory,
+      { role: "user", content: message },
+    ];
+
+    let rawContent = "{}";
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        const response = await axios.post(
+          `${GEMINI_BASE}/chat/completions`,
+          {
+            model: GEMINI_MODEL,
+            response_format: { type: "json_object" },
+            messages: apiMessages,
           },
           {
             headers: {
@@ -142,41 +167,56 @@ You MUST output a valid JSON object with EXACTLY two fields:
         );
 
         rawContent = response.data?.choices?.[0]?.message?.content || "{}";
-        break; // Success, exit retry loop
+        break; // Success
       } catch (err) {
         console.log(`AI Chat Attempt ${attempts} Error:`, err?.response?.data || err.message);
         if (attempts >= maxAttempts) {
           rawContent = JSON.stringify({
             reply: "The AI service is temporarily busy. Please try asking your health question again.",
-            specialty: "General Physician"
+            isMedical: false,
+            specialty: null
           });
         } else {
-          // Short delay before retry
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
     }
 
-    // Parse the structured JSON response from single AI prompt
+    // Parse the structured JSON response
     let reply = "Please state your health concerns or symptoms clearly.";
-    let detectedSpecialty = "General Physician";
+    let detectedSpecialty = null;
+    let isMedical = false;
+
     try {
       const parsed = JSON.parse(rawContent);
       reply = parsed.reply || reply;
-      detectedSpecialty = parsed.specialty || detectedSpecialty;
+      isMedical = Boolean(parsed.isMedical);
+      if (isMedical && parsed.specialty) {
+        detectedSpecialty = parsed.specialty;
+      }
     } catch (e) {
       reply = rawContent || reply;
     }
 
-    const doctor = findSuggestedDoctor(doctors, detectedSpecialty);
-    const specialty = doctor?.specialty || detectedSpecialty;
+    let doctor = null;
+    let specialty = null;
+
+    if (isMedical && detectedSpecialty) {
+      const matchedDoctor = findSuggestedDoctor(doctors, detectedSpecialty);
+      if (matchedDoctor) {
+        doctor = formatDoctor(matchedDoctor);
+        specialty = matchedDoctor.specialty;
+      } else {
+        specialty = detectedSpecialty;
+      }
+    }
 
     // SAVE CHAT IN DB
     await prisma.chat.create({
       data: {
         message,
         reply,
-        specialty,
+        specialty: specialty || null,
         patientId: patientId || null,
       },
     });
@@ -184,7 +224,7 @@ You MUST output a valid JSON object with EXACTLY two fields:
     // RESPONSE
     res.json({
       reply,
-      doctor: formatDoctor(doctor),
+      doctor: doctor || null,
     });
 
   } catch (error) {
@@ -218,7 +258,7 @@ export const getChats = async (req, res) => {
     res.json(
       chats.map((chat) => ({
         ...chat,
-        doctor: formatDoctor(findSuggestedDoctor(doctors, chat.specialty)),
+        doctor: chat.specialty ? formatDoctor(findSuggestedDoctor(doctors, chat.specialty)) : null,
       }))
     );
   } catch (err) {
