@@ -7,7 +7,7 @@ cron.schedule("* * * * *", async () => {
     try {
         console.log("Checking appointments for reminders...");
 
-        // Fetch appointments to ensure no appointment is missed due to timezone differences
+        // Fetch appointments to ensure no appointment is missed
         const appointments = await prisma.appointment.findMany({
             include: {
                 patient: {
@@ -99,6 +99,20 @@ cron.schedule("* * * * *", async () => {
                 });
 
                 console.log(`Patient reminder created (sent=${isSent}) for appointment ${appointment.id}`);
+            } else if (!existingPatientReminder.sent && patientEmail) {
+                const isSent = await sendEmail({
+                    to: patientEmail,
+                    subject: "Appointment Reminder - HealthRay HMS",
+                    text: existingPatientReminder.message,
+                });
+
+                if (isSent) {
+                    await prisma.reminder.update({
+                        where: { id: existingPatientReminder.id },
+                        data: { sent: true },
+                    });
+                    console.log(`Unsent patient reminder ${existingPatientReminder.id} delivered and updated to sent=true`);
+                }
             }
 
             // ====================================
@@ -175,45 +189,19 @@ cron.schedule("* * * * *", async () => {
                 });
 
                 console.log(`Doctor reminder created (sent=${isSent}) for appointment ${appointment.id}`);
-            }
-        }
-
-        // ====================================
-        // UNSENT REMINDERS RETRY / DELIVERY
-        // ====================================
-        const unsentReminders = await prisma.reminder.findMany({
-            where: { sent: false },
-            include: {
-                appointment: {
-                    include: {
-                        patient: { include: { user: true } },
-                        doctor: { include: { user: true } },
-                    },
-                },
-            },
-        });
-
-        for (const reminder of unsentReminders) {
-            let email = null;
-            if (reminder.receiverType === "patient") {
-                email = reminder.appointment?.patient?.user?.email;
-            } else if (reminder.receiverType === "doctor") {
-                email = reminder.appointment?.doctor?.user?.email;
-            }
-
-            if (email) {
+            } else if (!existingDoctorReminder.sent && doctorEmail) {
                 const isSent = await sendEmail({
-                    to: email,
-                    subject: `HealthRay HMS ${reminder.receiverType === "patient" ? "Appointment Reminder" : "Patient Appointment Reminder"}`,
-                    text: reminder.message,
+                    to: doctorEmail,
+                    subject: "Patient Appointment Reminder - HealthRay HMS",
+                    text: existingDoctorReminder.message,
                 });
 
                 if (isSent) {
                     await prisma.reminder.update({
-                        where: { id: reminder.id },
+                        where: { id: existingDoctorReminder.id },
                         data: { sent: true },
                     });
-                    console.log(`Unsent reminder ${reminder.id} successfully emailed and updated to sent=true`);
+                    console.log(`Unsent doctor reminder ${existingDoctorReminder.id} delivered and updated to sent=true`);
                 }
             }
         }
