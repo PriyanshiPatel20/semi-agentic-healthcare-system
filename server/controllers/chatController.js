@@ -13,10 +13,7 @@ const formatDoctor = (doctor) =>
     experience: doctor.experience,
   };
 
-// The model can return punctuation or a closely related word (for example,
-// "Cardiologist" when the database contains "Cardiology"). Match against the
-// specialties that are actually configured by the admin instead of querying
-// the raw model output.
+// Match detected specialty against database specialties
 const findSuggestedDoctor = (doctors, detectedSpecialty) => {
   const detected = normalizeSpecialty(detectedSpecialty);
 
@@ -44,7 +41,16 @@ export const chatWithAI = async (req, res) => {
       patientId = patient?.id || null;
     }
 
-    // AI CALL (Gemini 3.6 Flash)
+    // Fetch available specialties from DB before the AI call
+    const doctors = await prisma.doctor.findMany();
+    const availableSpecialties = [
+      ...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)),
+    ];
+    const specialtyList = availableSpecialties.length > 0
+      ? availableSpecialties.join(", ")
+      : "General Physician";
+
+    // SINGLE AI CALL (Gemini 3.6 Flash) - Structured JSON output
     const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
     const GEMINI_MODEL = "gemini-3.6-flash";
 
@@ -52,6 +58,7 @@ export const chatWithAI = async (req, res) => {
       `${GEMINI_BASE}/chat/completions`,
       {
         model: GEMINI_MODEL,
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
@@ -82,8 +89,7 @@ IMPORTANT RULES:
 
 3. NON-MEDICAL OR RANDOM INPUT
 - If the user's message is random, meaningless, unclear, or unrelated to health or medicine, DO NOT provide health tips, wellness advice, nutrition advice, exercise advice, sleep advice, or other medical information.
-- Respond with EXACTLY: "Please state your health concerns or symptoms clearly."
-- Do not add anything before or after this sentence.
+- Set "reply" to EXACTLY: "Please state your health concerns or symptoms clearly."
 
 4. DOCTOR RECOMMENDATION
 - Do NOT automatically recommend seeing a doctor.
@@ -104,9 +110,17 @@ IMPORTANT RULES:
 - Never invent medical facts, medicines, dosages, test results, or patient information.
 - If the user describes potentially urgent or severe symptoms, clearly explain that urgent medical evaluation may be appropriate.
 
-OUTPUT RULE:
-For a valid health-related question, answer the question directly.
-For an invalid, random, meaningless, or non-health-related question, output ONLY: "Please state your health concerns or symptoms clearly."`,
+7. SPECIALTY RECOMMENDATION
+- Detect the relevant doctor specialty for the patient's concern.
+- Pick exactly one specialty from the available hospital list: ${specialtyList}
+- If no specialty is suitable or the query is non-medical, pick "General Physician".
+
+OUTPUT FORMAT:
+You MUST output a valid JSON object with EXACTLY two fields:
+{
+  "reply": "Your medical answer or warning",
+  "specialty": "The detected specialty name"
+}`,
           },
           { role: "user", content: message },
         ],
@@ -119,58 +133,21 @@ For an invalid, random, meaningless, or non-health-related question, output ONLY
       }
     );
 
-    const reply =
-      response.data?.choices?.[0]?.message?.content || "No response";
+    const rawContent =
+      response.data?.choices?.[0]?.message?.content || "{}";
 
-    // Use the specialties in the database as the model's allowed choices.
-    // This prevents a valid recommendation being lost because its wording does
-    // not exactly match the specialty entered in Doctor Management.
-    const doctors = await prisma.doctor.findMany();
-    const availableSpecialties = [
-      ...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)),
-    ];
+    // Parse the structured JSON response from single AI prompt
+    let reply = "Please state your health concerns or symptoms clearly.";
+    let detectedSpecialty = "General Physician";
+    try {
+      const parsed = JSON.parse(rawContent);
+      reply = parsed.reply || reply;
+      detectedSpecialty = parsed.specialty || detectedSpecialty;
+    } catch (e) {
+      reply = rawContent || reply;
+    }
 
-    // AI SPECIALTY DETECTION (Gemini 2.5 Flash)
-    const specialtyResponse = await axios.post(
-      `${GEMINI_BASE}/chat/completions`,
-      {
-        model: GEMINI_MODEL,
-        messages: [
-          {
-            role: "system",
-            content: `
-              You are a hospital AI system.
-
-              Based on patient symptoms, return ONLY the most suitable doctor specialty.
-
-              Available specialties in this hospital:
-              ${availableSpecialties.map((specialty) => `- ${specialty}`).join("\n") || "- General Physician"}
-
-              Return exactly one specialty from the available list. If no
-              specialty is clearly suitable, return the closest available one.
-              No explanation.
-                      `,
-          },
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    const detectedSpecialty =
-      specialtyResponse.data?.choices?.[0]?.message?.content?.trim() ||
-      "General Physician";
     const doctor = findSuggestedDoctor(doctors, detectedSpecialty);
-    // Store the selected doctor's real specialty so old messages can be
-    // rendered with the same recommendation after a page refresh.
     const specialty = doctor?.specialty || detectedSpecialty;
 
     // SAVE CHAT IN DB
@@ -190,13 +167,13 @@ For an invalid, random, meaningless, or non-health-related question, output ONLY
     });
 
   } catch (error) {
-    console.log(error);
+    console.log("AI Chat Error:", error?.response?.data || error.message);
     res.status(500).json({ error: "AI failed" });
   }
 };
+
 export const getChats = async (req, res) => {
   try {
-    // Get patient using userid header (same auth pattern as rest of app)
     const userId = Number(req.headers.userid);
 
     if (!userId) {
