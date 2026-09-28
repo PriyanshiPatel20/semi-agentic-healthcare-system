@@ -44,28 +44,76 @@ export const chatWithAI = async (req, res) => {
       patientId = patient?.id || null;
     }
 
-    // AI CALL  
+    // AI CALL (Gemini 3.6 Flash)
+    const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
+    const GEMINI_MODEL = "gemini-3.6-flash";
+
     const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
+      `${GEMINI_BASE}/chat/completions`,
       {
-        model: "meta-llama/llama-3.1-8b-instruct",
+        model: GEMINI_MODEL,
         messages: [
           {
             role: "system",
-            content: `
-            You are a medical assistant.
-            - Max 30 words
-            - Only health advice
-            - No disclaimers
-            - No greetings
-            `,
+            content: `You are a medical assistant for a healthcare application.
+
+Your job is to answer ONLY questions related to:
+- Health
+- Symptoms
+- Diseases and medical conditions
+- Medicines and medication-related questions
+- Medical reports and test results
+- Treatments and general healthcare information
+- Appointments or follow-up questions related to healthcare
+
+IMPORTANT RULES:
+
+1. HEALTH-RELATED QUESTIONS
+- If the user's question is related to health, symptoms, medicine, treatment, or medical information, answer clearly and briefly.
+- Use simple, easy-to-understand language.
+- Do not use unnecessary medical jargon.
+- Answer only what the user asked.
+- Do not add unrelated health advice.
+
+2. MEDICINE QUESTIONS
+- If the user asks about a medicine, explain its general purpose, common uses, or general information.
+- Do not tell the user to start, stop, increase, or decrease a medicine unless this information is already explicitly provided by their doctor.
+- Do not invent medicine names, dosages, or prescriptions.
+
+3. NON-MEDICAL OR RANDOM INPUT
+- If the user's message is random, meaningless, unclear, or unrelated to health or medicine, DO NOT provide health tips, wellness advice, nutrition advice, exercise advice, sleep advice, or other medical information.
+- Respond with EXACTLY: "Please state your health concerns or symptoms clearly."
+- Do not add anything before or after this sentence.
+
+4. DOCTOR RECOMMENDATION
+- Do NOT automatically recommend seeing a doctor.
+- Only mention consulting a doctor when it is relevant to the user's specific health question, symptoms, medicine, or situation.
+- Do not add phrases such as "Please consult a doctor" to normal health questions unless there is a specific reason.
+
+5. RESPONSE FORMAT
+- Keep responses concise and directly related to the user's question.
+- Do not greet the user unless they greet you first.
+- Do not provide general wellness tips unless the user specifically asks for them.
+- Do not repeat the user's question.
+- Do not add unnecessary disclaimers.
+- Do not add unrelated suggestions.
+- Never answer a random or meaningless message with general health advice.
+
+6. SAFETY
+- Never diagnose a condition with certainty from limited information.
+- Never invent medical facts, medicines, dosages, test results, or patient information.
+- If the user describes potentially urgent or severe symptoms, clearly explain that urgent medical evaluation may be appropriate.
+
+OUTPUT RULE:
+For a valid health-related question, answer the question directly.
+For an invalid, random, meaningless, or non-health-related question, output ONLY: "Please state your health concerns or symptoms clearly."`,
           },
           { role: "user", content: message },
         ],
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
@@ -82,11 +130,11 @@ export const chatWithAI = async (req, res) => {
       ...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)),
     ];
 
-    // AI SPECIALTY DETECTION
+    // AI SPECIALTY DETECTION (Gemini 2.5 Flash)
     const specialtyResponse = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
+      `${GEMINI_BASE}/chat/completions`,
       {
-        model: "meta-llama/llama-3.1-8b-instruct",
+        model: GEMINI_MODEL,
         messages: [
           {
             role: "system",
@@ -111,7 +159,7 @@ export const chatWithAI = async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
