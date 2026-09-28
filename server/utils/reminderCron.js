@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import prisma from "../prisma/client.js";
 import axios from "axios";
+import { sendEmail } from "./sendEmail.js";
 
 cron.schedule("* * * * *", async () => {
     try {
@@ -19,8 +20,16 @@ cron.schedule("* * * * *", async () => {
                 },
             },
             include: {
-                patient: true,
-                doctor: true,
+                patient: {
+                    include: {
+                        user: true,
+                    },
+                },
+                doctor: {
+                    include: {
+                        user: true,
+                    },
+                },
             },
         });
 
@@ -35,16 +44,18 @@ cron.schedule("* * * * *", async () => {
                 },
             });
 
+            const patientEmail = appointment.patient?.user?.email;
+
             // ====================================
-            // CREATE PATIENT REMINDER
+            // CREATE / SEND PATIENT REMINDER
             // ====================================
             if (!existingPatientReminder) {
                 let patientMessage = "You have appointment today.";
                 try {
                     const aiResponse = await axios.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
+                        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
                         {
-                            model: "meta-llama/llama-3.1-8b-instruct",
+                            model: "gemini-3.6-flash",
                             messages: [
                                 {
                                     role: "system",
@@ -74,7 +85,7 @@ cron.schedule("* * * * *", async () => {
                         },
                         {
                             headers: {
-                                Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                                Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
                                 "Content-Type": "application/json",
                             },
                             timeout: 5000
@@ -86,18 +97,41 @@ cron.schedule("* * * * *", async () => {
                     console.log(`Patient AI Reminder generation failed for appointment ${appointment.id}:`, error.message);
                 }
 
+                let isSent = false;
+                if (patientEmail) {
+                    isSent = await sendEmail({
+                        to: patientEmail,
+                        subject: "Appointment Reminder - HealthRay HMS",
+                        text: patientMessage,
+                    });
+                }
+
                 await prisma.reminder.create({
                     data: {
                         appointmentId: appointment.id,
                         message: patientMessage,
                         receiverType: "patient",
                         receiverId: appointment.patient.id,
+                        sent: isSent,
                     },
                 });
 
                 console.log(
-                    `Patient reminder created for appointment ${appointment.id}`
+                    `Patient reminder created (sent=${isSent}) for appointment ${appointment.id}`
                 );
+            } else if (!existingPatientReminder.sent && patientEmail) {
+                const isSent = await sendEmail({
+                    to: patientEmail,
+                    subject: "Appointment Reminder - HealthRay HMS",
+                    text: existingPatientReminder.message,
+                });
+                if (isSent) {
+                    await prisma.reminder.update({
+                        where: { id: existingPatientReminder.id },
+                        data: { sent: true },
+                    });
+                    console.log(`Patient unsent reminder email delivered for appointment ${appointment.id}`);
+                }
             }
 
             // ====================================
@@ -110,16 +144,18 @@ cron.schedule("* * * * *", async () => {
                 },
             });
 
+            const doctorEmail = appointment.doctor?.user?.email;
+
             // ====================================
-            // CREATE DOCTOR REMINDER
+            // CREATE / SEND DOCTOR REMINDER
             // ====================================
             if (!existingDoctorReminder) {
                 let doctorMessage = "You have patient appointment today.";
                 try {
                     const doctorAiResponse = await axios.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
+                        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
                         {
-                            model: "meta-llama/llama-3.1-8b-instruct",
+                            model: "gemini-3.6-flash",
                             messages: [
                                 {
                                     role: "system",
@@ -147,7 +183,7 @@ cron.schedule("* * * * *", async () => {
                         },
                         {
                             headers: {
-                                Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                                Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
                                 "Content-Type": "application/json",
                             },
                             timeout: 5000
@@ -159,18 +195,41 @@ cron.schedule("* * * * *", async () => {
                     console.log(`Doctor AI Reminder generation failed for appointment ${appointment.id}:`, error.message);
                 }
 
+                let isSent = false;
+                if (doctorEmail) {
+                    isSent = await sendEmail({
+                        to: doctorEmail,
+                        subject: "Patient Appointment Reminder - HealthRay HMS",
+                        text: doctorMessage,
+                    });
+                }
+
                 await prisma.reminder.create({
                     data: {
                         appointmentId: appointment.id,
                         message: doctorMessage,
                         receiverType: "doctor",
                         receiverId: appointment.doctor.id,
+                        sent: isSent,
                     },
                 });
 
                 console.log(
-                    `Doctor reminder created for appointment ${appointment.id}`
+                    `Doctor reminder created (sent=${isSent}) for appointment ${appointment.id}`
                 );
+            } else if (!existingDoctorReminder.sent && doctorEmail) {
+                const isSent = await sendEmail({
+                    to: doctorEmail,
+                    subject: "Patient Appointment Reminder - HealthRay HMS",
+                    text: existingDoctorReminder.message,
+                });
+                if (isSent) {
+                    await prisma.reminder.update({
+                        where: { id: existingDoctorReminder.id },
+                        data: { sent: true },
+                    });
+                    console.log(`Doctor unsent reminder email delivered for appointment ${appointment.id}`);
+                }
             }
         }
     } catch (error) {
