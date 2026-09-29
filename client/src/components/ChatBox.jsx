@@ -29,6 +29,13 @@ export default function ChatBox() {
     if (!message.trim()) return;
     const user = JSON.parse(localStorage.getItem("user"));
     const userMsg = { type: "user", text: message };
+
+    // Capture the recent 6 to 7 messages from the ongoing chat conversation
+    const recentHistory = chat.slice(-7).map((m) => ({
+      sender: m.type === "user" ? "Patient" : "Assistant",
+      text: m.text,
+    }));
+
     setChat((prev) => [...prev, userMsg]);
     setMessage("");
     setLoading(true);
@@ -36,9 +43,9 @@ export default function ChatBox() {
     try {
       const res = await API.post(
         "/chat",
-        { message },
+        { message, history: recentHistory },
         {
-          headers: { role: "patient", userid: user.id },
+          headers: { role: "patient", userid: user?.id },
         }
       );
 

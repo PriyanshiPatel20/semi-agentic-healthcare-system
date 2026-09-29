@@ -7,6 +7,7 @@ cron.schedule("* * * * *", async () => {
     try {
         console.log("Checking appointments for reminders...");
 
+        // Fetch appointments to ensure no appointment is missed due to timezone differences
         const appointments = await prisma.appointment.findMany({
             include: {
                 patient: {
@@ -23,13 +24,6 @@ cron.schedule("* * * * *", async () => {
         });
 
         for (const appointment of appointments) {
-            const dateStr = new Date(appointment.date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-            });
-            const timeStr = appointment.time || "scheduled time";
-
             // ====================================
             // PATIENT REMINDER CHECK
             // ====================================
@@ -43,32 +37,30 @@ cron.schedule("* * * * *", async () => {
             const patientEmail = appointment.patient?.user?.email;
 
             if (!existingPatientReminder) {
-                // Default friendly message format as fallback
-                let patientMessage = `Hi ${appointment.patient.name}! Friendly reminder of your ${appointment.doctor.specialty} appointment with Dr. ${appointment.doctor.name} on ${dateStr}, at ${timeStr}. See you soon!`;
-
+                let patientMessage = "You have an appointment today.";
                 try {
                     const aiResponse = await axios.post(
                         "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
                         {
-                            model: "gemini-3.6-flash",
+                            model: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
                             messages: [
                                 {
                                     role: "system",
                                     content: `
-                                    You are a friendly hospital reminder AI.
-                                    Generate a single short reminder for a patient in this exact format style:
-                                    "Hi [Patient Name]! Friendly reminder of your [Specialty] appointment with Dr. [Doctor Name] on [Date], at [Time]. See you soon!"
-                                    Max 25 words. Keep the exact friendly style. No quotes or extra text.
+                                    You are hospital reminder AI.
+                                    Generate short reminder for patient.
+                                    Max 25 words.
+                                    Friendly tone.
                                     `,
                                 },
                                 {
                                     role: "user",
                                     content: `
                                     Patient: ${appointment.patient.name}
-                                    Doctor: Dr. ${appointment.doctor.name}
+                                    Doctor: ${appointment.doctor.name}
                                     Specialty: ${appointment.doctor.specialty}
-                                    Appointment Date: ${dateStr}
-                                    Appointment Time: ${timeStr}
+                                    Appointment Date: ${appointment.date.toISOString().split("T")[0]}
+                                    Appointment Time: ${appointment.time || "Not specified"}
                                     `,
                                 },
                             ],
@@ -82,12 +74,9 @@ cron.schedule("* * * * *", async () => {
                         }
                     );
 
-                    const generatedText = aiResponse.data?.choices?.[0]?.message?.content?.trim();
-                    if (generatedText) {
-                        patientMessage = generatedText;
-                    }
+                    patientMessage = aiResponse.data?.choices?.[0]?.message?.content || "You have an appointment today.";
                 } catch (error) {
-                    console.log(`Patient AI Reminder generation fallback used for appointment ${appointment.id}:`, error.message);
+                    console.log(`Patient AI Reminder generation failed for appointment ${appointment.id}:`, error.message);
                 }
 
                 let isSent = false;
@@ -125,31 +114,29 @@ cron.schedule("* * * * *", async () => {
             const doctorEmail = appointment.doctor?.user?.email;
 
             if (!existingDoctorReminder) {
-                // Default professional doctor message format as fallback
-                let doctorMessage = `Dr. ${appointment.doctor.name}, reminder: You have an appointment scheduled with patient ${appointment.patient.name} on ${dateStr}, at ${timeStr}.`;
-
+                let doctorMessage = "You have a patient appointment today.";
                 try {
                     const doctorAiResponse = await axios.post(
                         "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
                         {
-                            model: "gemini-3.6-flash",
+                            model: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
                             messages: [
                                 {
                                     role: "system",
                                     content: `
                                     You are hospital assistant AI.
-                                    Generate short professional reminder for doctor in this format style:
-                                    "Dr. [Doctor Name], reminder: You have an appointment scheduled with patient [Patient Name] on [Date], at [Time]."
-                                    Max 25 words. No extra commentary.
+                                    Generate short reminder for doctor.
+                                    Max 25 words.
+                                    Professional tone.
                                     `,
                                 },
                                 {
                                     role: "user",
                                     content: `
-                                    Doctor: Dr. ${appointment.doctor.name}
+                                    Doctor: ${appointment.doctor.name}
                                     Patient: ${appointment.patient.name}
-                                    Appointment Date: ${dateStr}
-                                    Appointment Time: ${timeStr}
+                                    Appointment Date: ${appointment.date.toISOString().split("T")[0]}
+                                    Appointment Time: ${appointment.time || "Not specified"}
                                     `,
                                 },
                             ],
@@ -163,12 +150,9 @@ cron.schedule("* * * * *", async () => {
                         }
                     );
 
-                    const doctorGeneratedText = doctorAiResponse.data?.choices?.[0]?.message?.content?.trim();
-                    if (doctorGeneratedText) {
-                        doctorMessage = doctorGeneratedText;
-                    }
+                    doctorMessage = doctorAiResponse.data?.choices?.[0]?.message?.content || "You have a patient appointment today.";
                 } catch (error) {
-                    console.log(`Doctor AI Reminder generation fallback used for appointment ${appointment.id}:`, error.message);
+                    console.log(`Doctor AI Reminder generation failed for appointment ${appointment.id}:`, error.message);
                 }
 
                 let isSent = false;
@@ -191,6 +175,46 @@ cron.schedule("* * * * *", async () => {
                 });
 
                 console.log(`Doctor reminder created (sent=${isSent}) for appointment ${appointment.id}`);
+            }
+        }
+
+        // ====================================
+        // UNSENT REMINDERS RETRY / DELIVERY
+        // ====================================
+        const unsentReminders = await prisma.reminder.findMany({
+            where: { sent: false },
+            include: {
+                appointment: {
+                    include: {
+                        patient: { include: { user: true } },
+                        doctor: { include: { user: true } },
+                    },
+                },
+            },
+        });
+
+        for (const reminder of unsentReminders) {
+            let email = null;
+            if (reminder.receiverType === "patient") {
+                email = reminder.appointment?.patient?.user?.email;
+            } else if (reminder.receiverType === "doctor") {
+                email = reminder.appointment?.doctor?.user?.email;
+            }
+
+            if (email) {
+                const isSent = await sendEmail({
+                    to: email,
+                    subject: `HealthRay HMS ${reminder.receiverType === "patient" ? "Appointment Reminder" : "Patient Appointment Reminder"}`,
+                    text: reminder.message,
+                });
+
+                if (isSent) {
+                    await prisma.reminder.update({
+                        where: { id: reminder.id },
+                        data: { sent: true },
+                    });
+                    console.log(`Unsent reminder ${reminder.id} successfully emailed and updated to sent=true`);
+                }
             }
         }
     } catch (error) {

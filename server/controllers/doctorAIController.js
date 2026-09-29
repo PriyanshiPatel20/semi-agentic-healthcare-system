@@ -1,13 +1,94 @@
 import prisma from "../prisma/client.js";
 import axios from "axios";
 
+const GEMINI_OPENAI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
+
+const RETIRED_MODELS = new Set([
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-pro",
+  "gemini-1.0-pro",
+]);
+
+const CANDIDATE_CHAT_MODELS = [
+  process.env.GEMINI_MODEL,
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-3-flash-preview",
+  "gemini-3.5-flash",
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-flash-latest",
+].filter((m) => Boolean(m) && !RETIRED_MODELS.has(m));
+
+const UNIQUE_MODELS = [...new Set(CANDIDATE_CHAT_MODELS)];
+
+async function executeGeminiChat({ messages, json = false, tag = "Doctor AI" }) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured in environment!");
+  }
+
+  let lastError = null;
+
+  for (let i = 0; i < UNIQUE_MODELS.length; i++) {
+    const model = UNIQUE_MODELS[i];
+    const startTime = Date.now();
+    console.log(`🤖 [${tag}] Attempt ${i + 1}/${UNIQUE_MODELS.length}: Querying model "${model}"...`);
+
+    try {
+      const response = await axios.post(
+        `${GEMINI_OPENAI_BASE}/chat/completions`,
+        {
+          model,
+          messages,
+          ...(json ? { response_format: { type: "json_object" } } : {}),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 30000,
+        }
+      );
+
+      const elapsed = Date.now() - startTime;
+      const content = response.data.choices[0].message.content;
+      console.log(`✅ [${tag}] Model "${model}" responded successfully in ${elapsed}ms`);
+      return { content, model, elapsed };
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      lastError = err;
+      const status = err.response?.status || "NO_STATUS";
+      const apiMsg = err.response?.data?.error?.message || err.message;
+      console.warn(`⚠️ [${tag}] Model "${model}" failed after ${elapsed}ms (Status ${status}): ${apiMsg}`);
+
+      if (i < UNIQUE_MODELS.length - 1) {
+        console.log(`🔄 [${tag}] Falling over to model: "${UNIQUE_MODELS[i + 1]}"...`);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 /**
  * AI CHAT + MEMORY
  */
 export const doctorAIChat = async (req, res) => {
+  console.log("\n==================== [DOCTOR AI CHAT] ====================");
   try {
     const { message, patient } = req.body;
     const userId = req.headers.userid;
+
+    console.log(`[Doctor AI Chat] Patient: "${patient?.name}" (ID: ${patient?.id}) | User ID: ${userId}`);
+    console.log(`[Doctor AI Chat] Message: "${message}"`);
 
     let doctorId = null;
 
@@ -36,108 +117,65 @@ export const doctorAIChat = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
+    const messages = [
       {
-        model: "meta-llama/llama-3.1-8b-instruct",
-        messages: [
-          {
-            role: "system",
-            content: `
-              You are a senior clinical doctor assistant helping real doctors.
+        role: "system",
+        content: `
+          You are a senior clinical doctor assistant helping real doctors.
 
-              STRICT RESPONSE RULES:
+          STRICT RESPONSE RULES:
+          - Respond like an experienced doctor
+          - NEVER say: "unknown", "cannot assess", "insufficient information", "medical history unavailable", "consult physician", "seek professional advice"
+          - NEVER sound like an AI system
+          - NEVER explain limitations or robotic analysis language
+          - Always give clinical observations, likely concerns, practical recommendations, preventive advice, and follow-up suggestions
 
-              - Respond like an experienced doctor
-              - NEVER say:
-                - "unknown"
-                - "cannot assess"
-                - "insufficient information"
-                - "medical history unavailable"
-                - "possible hidden condition"
-                - "consult physician"
-                - "seek professional advice"
+          STYLE RULES:
+          - Use clean markdown
+          - Sound confident and clinically useful
 
-              - NEVER sound like an AI system
-              - NEVER explain limitations
-              - NEVER use robotic analysis language
+          FORMAT:
+          ## Clinical Assessment
+          Short professional assessment.
 
-              - Always give:
-                - clinical observations
-                - likely concerns
-                - practical recommendations
-                - preventive advice
-                - follow-up suggestions
+          ## Observations
+          - Point
+          - Point
 
-              STYLE RULES:
+          ## Recommendations
+          - Point
+          - Point
 
-              - Use clean markdown
-              - Use professional medical formatting
-              - Keep response concise but informative
-              - Sound confident and clinically useful
-              - Write as if a real doctor is reviewing the patient
-
-              FORMAT:
-
-              ## Clinical Assessment
-              Short professional assessment.
-
-              ## Observations
-              - Point
-              - Point
-
-              ## Recommendations
-              - Point
-              - Point
-
-              ## Follow-up
-              - Point
-              - Point
-
-              IMPORTANT:
-              - Infer reasonable clinical observations from age, gender, status, symptoms, blood group, and records.
-              - If information is limited, provide preventive and wellness-oriented guidance instead of mentioning missing data.
-              - Avoid generic filler text.
-              `,
-          },
-
-          ...history,
-
-          {
-            role: "user",
-            content: `
-              Doctor Message: ${message}
-
-              Patient Info:
-              Name: ${patient?.name}
-              Age: ${patient?.age}
-              Gender: ${patient?.gender}
-              Blood Group: ${patient?.bloodGroup}
-              Status: ${patient?.status}
-
-              Medical Record:
-              ${record ? JSON.stringify(record) : "No medical record available"}
-
-              Provide a professional doctor-style clinical assessment with:
-- observations
-- likely health considerations
-- preventive recommendations
-- follow-up advice
-
-Avoid mentioning missing information or AI limitations.
-                          `,
-          },
-        ],
+          ## Follow-up
+          - Point
+          - Point
+        `,
       },
+      ...history,
       {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+        role: "user",
+        content: `
+          Doctor Message: ${message}
 
-    const reply = response.data.choices[0].message.content;
+          Patient Info:
+          Name: ${patient?.name}
+          Age: ${patient?.age}
+          Gender: ${patient?.gender}
+          Blood Group: ${patient?.bloodGroup}
+          Status: ${patient?.status}
+
+          Medical Record:
+          ${record ? JSON.stringify(record) : "No medical record available"}
+
+          Provide a professional doctor-style clinical assessment.
+        `,
+      },
+    ];
+
+    const { content: reply, model } = await executeGeminiChat({
+      messages,
+      tag: "Doctor AI Chat",
+    });
 
     await prisma.doctorChat.create({
       data: {
@@ -148,14 +186,14 @@ Avoid mentioning missing information or AI limitations.
       },
     });
 
+    console.log(`✅ [Doctor AI Chat] Reply saved and returned (Model: ${model})`);
     res.json({ reply });
-
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "AI failed" });
+    const errorMsg = err.response?.data?.error?.message || err.message;
+    console.error("❌ [Doctor AI Chat] Error:", errorMsg);
+    res.status(500).json({ error: "AI failed", detail: errorMsg });
   }
 };
-
 
 /**
  * GET CHAT HISTORY
@@ -163,151 +201,35 @@ Avoid mentioning missing information or AI limitations.
 export const getDoctorChats = async (req, res) => {
   try {
     const patientId = Number(req.query.patientId);
+    console.log(`📋 [Doctor AI Chats] Fetching history for patientId: ${patientId}`);
 
     const chats = await prisma.doctorChat.findMany({
       where: { patientId },
       orderBy: { createdAt: "asc" },
     });
 
+    console.log(`✅ [Doctor AI Chats] Found ${chats.length} messages`);
     res.json(chats);
-
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Failed to fetch chats" });
+    console.error("❌ [Doctor AI Chats] Fetch chats error:", err.message);
+    res.status(500).json({ error: "Failed to fetch chats", detail: err.message });
   }
 };
-/**
- * store medical record in DB
- */
-// export const generateMedicalRecordFromChat = async (req, res) => {
-//   try {
-//     const { patient } = req.body;
-
-//     if (!patient?.id) {
-//       return res.status(400).json({ error: "Patient is required" });
-//     }
-
-//     // 1. Fetch chat history
-//     const chats = await prisma.doctorChat.findMany({
-//       where: { patientId: patient.id },
-//       orderBy: { createdAt: "asc" },
-//       take: 20,
-//     });
-
-//     const conversation = chats
-//       .map((c) => `Doctor: ${c.message}\nAI: ${c.reply}`)
-//       .join("\n\n");
-
-//     // 2. Call AI
-//     const response = await axios.post(
-//       "https://openrouter.ai/api/v1/chat/completions",
-//       {
-//         model: "meta-llama/llama-3.1-8b-instruct",
-//         messages: [
-//           {
-//             role: "system",
-//             content: `
-// You are a senior clinical assistant doctor.
-
-// CRITICAL RULES:
-// - Return ONLY valid JSON
-// - NO markdown, NO explanation, NO text before or after JSON
-// - NEVER leave fields empty
-// - NEVER use "unknown" or "unclear"
-
-// You MUST output in this format:
-
-// {
-//   "symptoms": "string",
-//   "diagnosis": "most likely medical condition (be specific)",
-//   "vitals": "string",
-//   "prescription": "string",
-//   "notes": "string"
-// }
-
-// Guidelines:
-// - diagnosis must be a real medical condition (e.g. "Acute bronchitis", "Hypertension")
-// - infer from conversation if needed
-// - be clinically accurate and concise
-//             `,
-//           },
-//           {
-//             role: "user",
-//             content: `
-// Patient Information:
-// Name: ${patient.name}
-// Age: ${patient.age}
-// Gender: ${patient.gender}
-
-// Chat History:
-// ${conversation || "No chat history available"}
-//             `,
-//           },
-//         ],
-//       },
-//       {
-//         headers: {
-//           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-//           "Content-Type": "application/json",
-//         },
-//       }
-//     );
-
-//     // 3. Clean AI response safely
-//     let raw = response.data.choices[0].message.content;
-
-//     // remove markdown if any
-//     raw = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-
-//     // extract JSON block safely
-//     const start = raw.indexOf("{");
-//     const end = raw.lastIndexOf("}");
-
-//     if (start === -1 || end === -1) {
-//       console.log("Invalid AI output:", raw);
-//       return res.status(500).json({ error: "Invalid AI response format" });
-//     }
-
-//     const jsonString = raw.substring(start, end + 1);
-
-//     let record;
-//     try {
-//       record = JSON.parse(jsonString);
-//     } catch (err) {
-//       console.log("JSON parse error:", jsonString);
-//       return res.status(500).json({ error: "Failed to parse AI response" });
-//     }
-
-//     // 4. Fallback safety (VERY IMPORTANT)
-//     const safeRecord = {
-//       symptoms: record.symptoms || "Not clearly identified",
-//       diagnosis: record.diagnosis || "Requires clinical evaluation",
-//       vitals: record.vitals || "Not available",
-//       prescription: record.prescription || "To be decided by doctor",
-//       notes: record.notes || "AI-generated medical summary",
-//     };
-
-//     // 5. Return result
-//     res.json(safeRecord);
-//   } catch (err) {
-//     console.log("Generate Medical Record Error:", err);
-//     res.status(500).json({ error: "Failed to generate medical record" });
-//   }
-// };
 
 /**
- *Medical Report PDF  
+ * Medical Report PDF
  */
-
 export const generatePDFMedicalReport = async (req, res) => {
+  console.log("\n==================== [GENERATE MEDICAL REPORT] ====================");
   try {
     const { patient } = req.body;
 
     if (!patient?.id) {
-      return res.status(400).json({
-        error: "Patient required",
-      });
+      console.warn("⚠️ [Generate Report] Missing patient in request body");
+      return res.status(400).json({ error: "Patient required" });
     }
+
+    console.log(`[Generate Report] Patient: "${patient.name}" (ID: ${patient.id})`);
 
     // GET CHAT HISTORY
     const chats = await prisma.doctorChat.findMany({
@@ -317,21 +239,13 @@ export const generatePDFMedicalReport = async (req, res) => {
     });
 
     const conversation = chats
-      .map(
-        (c) =>
-          `Doctor: ${c.message}\nAI: ${c.reply}`
-      )
+      .map((c) => `Doctor: ${c.message}\nAI: ${c.reply}`)
       .join("\n\n");
 
-    // AI CALL
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
+    const messages = [
       {
-        model: "meta-llama/llama-3.1-8b-instruct",
-        messages: [
-          {
-            role: "system",
-            content: `
+        role: "system",
+        content: `
 You are a senior clinical assistant doctor.
 
 CRITICAL RULES:
@@ -344,7 +258,6 @@ CRITICAL RULES:
 - Use medically accurate clinical language
 
 You MUST return:
-
 {
   "symptoms": "string",
   "diagnosis": "string",
@@ -355,20 +268,11 @@ You MUST return:
   "recommendations": "string",
   "notes": "string"
 }
-
-Rules:
-- diagnosis must be specific
-- risk_level depends on symptoms + patient status
-- use patient blood group and status
-- infer probable vitals if not available
-- recommendations must be actionable
-- red_flags must contain serious warning signs
-- NEVER return empty arrays or empty strings
-`,
-          },
-          {
-            role: "user",
-            content: `
+        `,
+      },
+      {
+        role: "user",
+        content: `
 Patient:
 Name: ${patient.name}
 Age: ${patient.age}
@@ -377,33 +281,26 @@ Blood Group: ${patient.bloodGroup}
 
 Chat History:
 ${conversation || "No chat history"}
-            `,
-          },
-        ],
+        `,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    ];
 
-    // CLEAN AI RESPONSE
-    let raw =
-      response.data.choices[0].message.content;
+    const { content: rawContent, model } = await executeGeminiChat({
+      messages,
+      json: true,
+      tag: "Medical Report Generation",
+    });
 
-    raw = raw
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
+    let raw = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
 
-    const report = JSON.parse(
-      raw.substring(start, end + 1)
-    );
+    if (start === -1 || end === -1) {
+      console.error("❌ [Generate Report] Invalid JSON format returned:", raw);
+      return res.status(500).json({ error: "Invalid AI response format", raw });
+    }
+
+    const report = JSON.parse(raw.substring(start, end + 1));
 
     // SAVE INTO DATABASE
     await prisma.medicalRecord.create({
@@ -415,19 +312,16 @@ ${conversation || "No chat history"}
         prescription: report.prescription,
         notes: report.notes,
         riskLevel: report.risk_level,
-        redFlags: JSON.stringify(report.red_flags),
+        redFlags: JSON.stringify(report.red_flags || []),
         recommendations: report.recommendations,
       },
     });
 
-    // RETURN SAME REPORT
+    console.log(`✅ [Generate Report] Medical report saved and returned (Model: ${model})`);
     res.json(report);
-
   } catch (err) {
-    console.log(err);
-
-    res.status(500).json({
-      error: "AI report generation failed",
-    });
+    const errorMsg = err.response?.data?.error?.message || err.message;
+    console.error("❌ [Generate Report] Error:", errorMsg);
+    res.status(500).json({ error: "AI report generation failed", detail: errorMsg });
   }
 };

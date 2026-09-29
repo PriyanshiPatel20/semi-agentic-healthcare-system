@@ -4,6 +4,25 @@ import axios from "axios";
 const normalizeSpecialty = (value = "") =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+// Enforce maximum words constraint (strictly max 30 words)
+const trimToMaxWords = (text = "", maxWords = 30) => {
+  if (!text) return "";
+  const cleaned = text.replace(/\s*\(ID:\s*\d+\)/gi, "").trim();
+  const words = cleaned.split(/\s+/);
+  if (words.length <= maxWords) return cleaned;
+
+  const slice = words.slice(0, maxWords).join(" ");
+  const lastPunctuation = Math.max(
+    slice.lastIndexOf("."),
+    slice.lastIndexOf("!"),
+    slice.lastIndexOf("?")
+  );
+  if (lastPunctuation > 20) {
+    return slice.substring(0, lastPunctuation + 1);
+  }
+  return slice + "...";
+};
+
 const formatDoctor = (doctor) =>
   doctor && {
     id: doctor.id,
@@ -13,54 +32,79 @@ const formatDoctor = (doctor) =>
     experience: doctor.experience,
   };
 
-// Match detected specialty against database specialties
+// Match detected specialty dynamically against doctors in database
 const findSuggestedDoctor = (doctors, detectedSpecialty) => {
-  if (!detectedSpecialty) return null;
+  if (!detectedSpecialty || !doctors || doctors.length === 0) return null;
   const detected = normalizeSpecialty(detectedSpecialty);
 
-  return doctors.find((doctor) => {
-    const specialty = normalizeSpecialty(doctor.specialty);
-    return (
-      specialty === detected ||
-      specialty.includes(detected) ||
-      detected.includes(specialty)
-    );
-  });
+  return (
+    doctors.find((doctor) => {
+      const specialty = normalizeSpecialty(doctor.specialty);
+      return (
+        specialty === detected ||
+        specialty.includes(detected) ||
+        detected.includes(specialty)
+      );
+    }) || null
+  );
 };
 
 export const chatWithAI = async (req, res) => {
+  const startTime = Date.now();
+  console.log("\n==================== [AI CHAT REQUEST START] ====================");
+  console.log(`[Chat Controller] Timestamp: ${new Date().toISOString()}`);
+  console.log(`[Chat Controller] Headers -> userId: "${req.headers.userid || ""}", role: "${req.headers.role || ""}"`);
+  console.log("[Chat Controller] Patient Message:", req.body?.message);
+
   try {
-    const { message } = req.body;
+    const { message, history: clientHistory } = req.body;
+
+    if (!message || !message.trim()) {
+      console.warn("⚠️ [Chat Controller] Message is empty");
+      return res.status(400).json({ error: "Message cannot be empty" });
+    }
+
+    let patientId = null;
+
+    // Get patient from headers if logged in
     const userId = Number(req.headers.userid);
+    if (userId) {
+      const patient = await prisma.patient.findUnique({
+        where: { userId },
+      });
+      patientId = patient?.id || null;
+      console.log(`[Chat Controller] Patient lookup for userId ${userId}: ${patient ? `Found (ID: ${patient.id}, Name: ${patient.name})` : "Not found in DB"}`);
+    }
 
-    // Parallel DB fetch for speed
-    const [doctors, patient] = await Promise.all([
-      prisma.doctor.findMany(),
-      userId ? prisma.patient.findUnique({ where: { userId } }) : null,
-    ]);
-
-    const patientId = patient?.id || null;
-
-    // Load last 7 chat messages for memory context
-    let conversationHistory = [];
-    if (patientId) {
+    // Capture past 6 to 7 messages history
+    let historyLines = [];
+    if (Array.isArray(clientHistory) && clientHistory.length > 0) {
+      historyLines = clientHistory.slice(-7).map((h) => {
+        const sender = h.sender || (h.type === "user" ? "Patient" : "Assistant");
+        const text = h.text || h.message || h.reply || "";
+        return `${sender}: ${text}`;
+      });
+    } else if (patientId) {
       const pastChats = await prisma.chat.findMany({
         where: { patientId },
         orderBy: { createdAt: "desc" },
-        take: 7,
+        take: 4,
       });
-      pastChats.reverse(); // Chronological order
-
-      for (const chat of pastChats) {
-        if (chat.message) {
-          conversationHistory.push({ role: "user", content: chat.message });
-        }
-        if (chat.reply) {
-          conversationHistory.push({ role: "assistant", content: chat.reply });
-        }
-      }
+      historyLines = pastChats
+        .reverse()
+        .flatMap((c) => [`Patient: ${c.message}`, `Assistant: ${c.reply}`])
+        .slice(-7);
     }
 
+    const historySection =
+      historyLines.length > 0
+        ? `\nRecent Conversation History (past 6-7 messages):\n${historyLines.join("\n")}\n`
+        : "";
+
+    console.log(`[Chat Controller] Conversation History Context (${historyLines.length} messages):\n${historyLines.join("\n") || "(None)"}`);
+
+    // Fetch doctors and specialties dynamically from database
+    const doctors = await prisma.doctor.findMany();
     const availableSpecialties = [
       ...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)),
     ];
@@ -68,102 +112,207 @@ export const chatWithAI = async (req, res) => {
       ? availableSpecialties.join(", ")
       : "General Physician";
 
-    // Fast Single AI Call with token limit
-    const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
-    const GEMINI_MODEL = "gemini-3.6-flash";
+    const doctorListPrompt = doctors
+      .map(
+        (d) =>
+          `- Dr. ${d.name.replace(/^Dr\.\s*/i, "")} (ID: ${d.id}, Specialty: ${d.specialty || "General"})`
+      )
+      .join("\n");
 
-    const systemPrompt = `You are a medical assistant.
-RULES:
-1. HEALTH/SYMPTOMS: Answer concisely (max 40 words). Set "isMedical": true. Pick 1 specialty from: ${specialtyList}.
-2. MEDICINE: Explain general purpose concisely. Do NOT give prescriptions/dosages. Set "isMedical": true.
-3. NON-MEDICAL / RANDOM: Set "reply" to EXACTLY: "Please state your health concerns or symptoms clearly.", "isMedical": false, "specialty": null.
-4. SAFETY: For severe/urgent symptoms, advise urgent medical evaluation.
-5. CONTEXT: Remember previous conversation messages.
+    console.log(`[Chat Controller] Dynamically loaded ${doctors.length} doctors with specialties: [${specialtyList}]`);
 
-JSON OUTPUT ONLY:
-{
-  "reply": "concise answer",
-  "isMedical": true or false,
-  "specialty": "Specialty name or null"
-}`;
+    // Model candidate list (prioritizing high-availability fast models)
+    const RETIRED_MODELS = new Set([
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-pro",
+      "gemini-1.0-pro",
+    ]);
 
-    const apiMessages = [
-      { role: "system", content: systemPrompt },
-      ...conversationHistory,
-      { role: "user", content: message },
-    ];
+    const CANDIDATE_MODELS = [
+      process.env.GEMINI_MODEL,
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-lite-latest",
+      "gemini-3-flash-preview",
+      "gemini-3.5-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "gemini-3.6-flash",
+      "gemini-flash-latest",
+    ].filter((m) => Boolean(m) && !RETIRED_MODELS.has(m));
+
+    const modelsToTry = [...new Set(CANDIDATE_MODELS)];
+    const GEMINI_NATIVE_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+    const apiKey = process.env.GEMINI_API_KEY;
 
     let rawContent = "{}";
-    let attempts = 0;
-    const maxAttempts = 2;
+    let modelSucceeded = false;
+    let modelUsed = "";
 
-    while (attempts < maxAttempts) {
-      try {
-        attempts++;
-        const response = await axios.post(
-          `${GEMINI_BASE}/chat/completions`,
-          {
-            model: GEMINI_MODEL,
-            response_format: { type: "json_object" },
-            messages: apiMessages,
-            max_tokens: 250,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            timeout: 7000,
+    const promptText = `
+You are a helpful and professional clinical assistant for a healthcare hospital.
+${historySection}
+Patient's current message:
+"${message}"
+
+Available doctors and specialties currently at our hospital:
+${doctorListPrompt}
+
+INSTRUCTIONS:
+1. CONVERSATION CONTEXT:
+   - Remember and consider the recent conversation history above so you can answer follow-up questions accurately.
+2. SHORT LENGTH CONSTRAINT:
+   - Your "reply" MUST BE SHORT: STRICTLY MAXIMUM 30 WORDS (1 to 2 brief sentences).
+   - Do NOT write lengthy explanations. Give direct, empathetic advice and recommend the specialist concisely.
+   - Mention the doctor naturally by name (e.g. Dr. Ajay), never include raw ID numbers in your reply.
+3. DOCTOR SUGGESTION:
+   - If health symptoms or follow-up questions are discussed:
+     - Provide brief initial care advice under 30 words.
+     - Match the condition to the most appropriate specialty from the hospital's available specialties (${specialtyList}).
+     - Select the matching doctor ID from the available doctors list above.
+     - Set "isMedical" to true.
+   - If the message is a greeting (e.g. "hi", "hello") or unrelated to health/symptoms:
+     - Greet them politely and briefly (under 20 words).
+     - Set "isMedical" to false, "specialty" to null, and "doctorId" to null.
+
+RETURN ONLY A VALID JSON OBJECT:
+{
+  "reply": "Brief medical advice or guidance (MAXIMUM 30 WORDS)",
+  "isMedical": true or false,
+  "specialty": "Matching specialty name from the available doctors list, or null",
+  "doctorId": Doctor integer ID from list above, or null
+}
+    `.trim();
+
+    // Call Gemini with model fallback
+    if (apiKey) {
+      for (let i = 0; i < modelsToTry.length; i++) {
+        const currentModel = modelsToTry[i];
+        const attemptStartTime = Date.now();
+        console.log(`🚀 [Chat Controller] [Attempt ${i + 1}/${modelsToTry.length}] Querying model: "${currentModel}"...`);
+
+        try {
+          let response;
+          try {
+            response = await axios.post(
+              `${GEMINI_NATIVE_BASE}/${currentModel}:generateContent?key=${apiKey}`,
+              {
+                contents: [{ parts: [{ text: promptText }] }],
+                generationConfig: {
+                  temperature: 0.1,
+                },
+              },
+              {
+                headers: { "Content-Type": "application/json" },
+                timeout: 15000,
+              }
+            );
+          } catch (firstErr) {
+            if (firstErr?.response?.status === 503) {
+              console.log(`⏳ [Chat Controller] Temporary 503 on "${currentModel}", retrying once in 400ms...`);
+              await new Promise((r) => setTimeout(r, 400));
+              response = await axios.post(
+                `${GEMINI_NATIVE_BASE}/${currentModel}:generateContent?key=${apiKey}`,
+                {
+                  contents: [{ parts: [{ text: promptText }] }],
+                  generationConfig: {
+                    temperature: 0.1,
+                  },
+                },
+                {
+                  headers: { "Content-Type": "application/json" },
+                  timeout: 15000,
+                }
+              );
+            } else {
+              throw firstErr;
+            }
           }
-        );
 
-        rawContent = response.data?.choices?.[0]?.message?.content || "{}";
-        break;
-      } catch (err) {
-        console.log(`AI Chat Attempt ${attempts} Error:`, err?.response?.data || err.message);
-        if (attempts >= maxAttempts) {
-          rawContent = JSON.stringify({
-            reply: "The AI service is temporarily busy. Please try asking your health question again.",
-            isMedical: false,
-            specialty: null,
-          });
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, 400));
+          const attemptElapsed = Date.now() - attemptStartTime;
+          rawContent = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+          modelSucceeded = true;
+          modelUsed = currentModel;
+
+          console.log(`✅ [Chat Controller] Model "${currentModel}" responded in ${attemptElapsed}ms`);
+          console.log(`📥 [Chat Controller] Raw Output:`, rawContent);
+          break;
+        } catch (err) {
+          const attemptElapsed = Date.now() - attemptStartTime;
+          const status = err?.response?.status;
+          const apiError = err?.response?.data?.error?.message || err.message;
+
+          console.warn(`⚠️ [Chat Controller] Model "${currentModel}" failed after ${attemptElapsed}ms (Status ${status}): ${apiError}`);
+
+          if (i < modelsToTry.length - 1) {
+            console.log(`🔄 [Chat Controller] Failing over to next model: "${modelsToTry[i + 1]}"...`);
+          }
         }
       }
     }
 
-    // Parse AI response
-    let reply = "Please state your health concerns or symptoms clearly.";
+    // Parse the structured JSON response
+    let reply = "Please describe your symptoms or ask a health-related question, and I will provide advice and suggest a doctor.";
     let detectedSpecialty = null;
+    let detectedDoctorId = null;
     let isMedical = false;
 
-    try {
-      const parsed = JSON.parse(rawContent);
-      reply = parsed.reply || reply;
-      isMedical = Boolean(parsed.isMedical);
-      if (isMedical && parsed.specialty) {
-        detectedSpecialty = parsed.specialty;
+    if (modelSucceeded) {
+      try {
+        let cleaned = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
+        if (start !== -1 && end !== -1) {
+          const parsed = JSON.parse(cleaned.substring(start, end + 1));
+          reply = trimToMaxWords(parsed.reply || reply, 30);
+          isMedical = Boolean(parsed.isMedical);
+          detectedSpecialty = parsed.specialty || null;
+          detectedDoctorId = parsed.doctorId ? Number(parsed.doctorId) : null;
+        }
+      } catch (e) {
+        console.warn("⚠️ [Chat Controller] JSON parse fallback on AI output:", e.message);
+        reply = trimToMaxWords(rawContent || reply, 30);
       }
-    } catch (e) {
-      reply = rawContent || reply;
+    } else {
+      reply = "Our clinical assistant is experiencing a momentary connection delay. Please describe your symptoms again, or consult one of our hospital doctors directly.";
     }
 
+    // Match doctor dynamically from database
     let doctor = null;
     let specialty = null;
 
-    if (isMedical && detectedSpecialty) {
-      const matchedDoctor = findSuggestedDoctor(doctors, detectedSpecialty);
-      if (matchedDoctor) {
-        doctor = formatDoctor(matchedDoctor);
-        specialty = matchedDoctor.specialty;
-      } else {
-        specialty = detectedSpecialty;
+    if (isMedical) {
+      if (detectedDoctorId) {
+        const matched = doctors.find((d) => d.id === detectedDoctorId);
+        if (matched) {
+          doctor = formatDoctor(matched);
+          specialty = matched.specialty;
+          console.log(`👨‍⚕️ [Chat Controller] AI matched Doctor by ID: ${doctor.name} (${specialty}, ID: ${doctor.id})`);
+        }
       }
+
+      if (!doctor && detectedSpecialty) {
+        const matched = findSuggestedDoctor(doctors, detectedSpecialty);
+        if (matched) {
+          doctor = formatDoctor(matched);
+          specialty = matched.specialty;
+          console.log(`👨‍⚕️ [Chat Controller] Doctor matched by specialty: ${doctor.name} (${specialty}, ID: ${doctor.id})`);
+        } else {
+          specialty = detectedSpecialty;
+          console.log(`ℹ️ [Chat Controller] AI suggested specialty "${detectedSpecialty}", but no direct match in DB`);
+        }
+      }
+    } else {
+      console.log("ℹ️ [Chat Controller] Non-medical query; doctor card suppressed");
     }
 
-    // Save in DB asynchronously
-    await prisma.chat.create({
+    // Save chat to database
+    console.log("💾 [Chat Controller] Saving chat to database...");
+    const savedChat = await prisma.chat.create({
       data: {
         message,
         reply,
@@ -171,23 +320,34 @@ JSON OUTPUT ONLY:
         patientId: patientId || null,
       },
     });
+    console.log(`💾 [Chat Controller] Chat saved successfully (Chat ID: ${savedChat.id})`);
 
+    const totalElapsed = Date.now() - startTime;
+    console.log(`🏁 [Chat Controller] Request completed in ${totalElapsed}ms`);
+    console.log("==================== [AI CHAT REQUEST END] ====================\n");
+
+    // Return advice and suggested doctor
     res.json({
       reply,
       doctor: doctor || null,
     });
-
   } catch (error) {
-    console.log("Chat Controller Error:", error);
-    res.status(500).json({ error: "Failed to process chat" });
+    const totalElapsed = Date.now() - startTime;
+    console.error(`💥 [Chat Controller Critical Error] after ${totalElapsed}ms:`, {
+      message: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Failed to process chat", detail: error.message });
   }
 };
 
 export const getChats = async (req, res) => {
+  console.log("\n📜 [Get Chats] Fetching patient chat history...");
   try {
     const userId = Number(req.headers.userid);
 
     if (!userId) {
+      console.warn("⚠️ [Get Chats] User ID missing from headers");
       return res.status(400).json({ error: "User ID required" });
     }
 
@@ -196,6 +356,7 @@ export const getChats = async (req, res) => {
     });
 
     if (!patient) {
+      console.warn(`⚠️ [Get Chats] Patient record not found for userId: ${userId}`);
       return res.status(404).json({ error: "Patient not found" });
     }
 
@@ -205,6 +366,8 @@ export const getChats = async (req, res) => {
     });
 
     const doctors = await prisma.doctor.findMany();
+    console.log(`✅ [Get Chats] Found ${chats.length} chats for Patient ID: ${patient.id}`);
+
     res.json(
       chats.map((chat) => ({
         ...chat,
@@ -212,15 +375,18 @@ export const getChats = async (req, res) => {
       }))
     );
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch chats" });
+    console.error("❌ [Get Chats Error]:", { message: err.message, stack: err.stack });
+    res.status(500).json({ error: "Failed to fetch chats", detail: err.message });
   }
 };
 
 export const clearChats = async (req, res) => {
+  console.log("\n🗑️ [Clear Chats] Clearing patient chat history...");
   try {
     const userId = Number(req.headers.userid);
 
     if (!userId) {
+      console.warn("⚠️ [Clear Chats] User ID missing from headers");
       return res.status(400).json({ error: "User ID required" });
     }
 
@@ -229,15 +395,18 @@ export const clearChats = async (req, res) => {
     });
 
     if (!patient) {
+      console.warn(`⚠️ [Clear Chats] Patient record not found for userId: ${userId}`);
       return res.status(404).json({ error: "Patient not found" });
     }
 
-    await prisma.chat.deleteMany({
+    const deleted = await prisma.chat.deleteMany({
       where: { patientId: patient.id },
     });
 
-    res.json({ message: "Chat history cleared successfully" });
+    console.log(`✅ [Clear Chats] Deleted ${deleted.count} chats for Patient ID: ${patient.id}`);
+    res.json({ message: "Chat history cleared successfully", count: deleted.count });
   } catch (err) {
-    res.status(500).json({ error: "Failed to clear chats" });
+    console.error("❌ [Clear Chats Error]:", { message: err.message, stack: err.stack });
+    res.status(500).json({ error: "Failed to clear chats", detail: err.message });
   }
 };
