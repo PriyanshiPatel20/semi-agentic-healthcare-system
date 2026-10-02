@@ -1,122 +1,144 @@
 import { useEffect, useState } from "react";
 import API from "../api";
 import "../styles/patientProfile.css";
-import { FaUserCircle } from "react-icons/fa";
+import { FaUserCircle, FaUserInjured, FaPhone, FaEnvelope, FaTint } from "react-icons/fa";
+import { BsShieldLock, BsActivity, BsFileEarmarkTextFill, BsCheckCircleFill } from "react-icons/bs";
 
 export default function PatientProfile() {
-
   const [patient, setPatient] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchProfile();
   }, []);
 
   const fetchProfile = async () => {
-
     try {
-
       const user = JSON.parse(localStorage.getItem("user"));
-
       const res = await API.get("/patients/profile", {
         headers: {
           userid: user.id,
-          role: user.role
-        }
+          role: user.role,
+        },
       });
-
       setPatient(res.data);
-
     } catch (error) {
       console.log(error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="profile-loading-state">
+        <BsActivity className="loading-spinner-icon" />
+        <h2>Loading Clinical Profile...</h2>
+      </div>
+    );
+  }
+
   if (!patient) {
-    return <h2>Loading...</h2>;
+    return (
+      <div className="profile-loading-state">
+        <h2>No patient profile record found.</h2>
+      </div>
+    );
   }
 
   return (
     <div className="profile-page">
-
-      {/* HEADER */}
-
+      {/* HEADER HERO */}
       <div className="profile-header">
-
-        <div className="profile-avatar">
-          <FaUserCircle />
+        <div className="profile-avatar-box">
+          <FaUserCircle className="profile-avatar-icon" />
         </div>
 
-        <div>
-          <h1>{patient.name}</h1>
-          <p>{patient.user?.email}</p>
+        <div className="profile-header-meta">
+          <div className="profile-header-title-row">
+            <h1>{patient.name}</h1>
+            <span className="profile-verified-badge">
+              <BsCheckCircleFill /> Verified Patient
+            </span>
+          </div>
+          <p className="profile-email">
+            <FaEnvelope className="inline-meta-icon" /> {patient.user?.email || "No email on record"}
+          </p>
         </div>
-
       </div>
 
-      {/* GRID */}
-
+      {/* GRID CARDS */}
       <div className="profile-grid">
-
-        {/* PERSONAL */}
-
+        {/* PERSONAL CARD */}
         <div className="info-card">
-
-          <h3>Personal Information</h3>
-
-          <div className="info-row">
-            <span className="label">Age</span>
-            <span className="value">{patient.age}</span>
+          <div className="info-card-header">
+            <FaUserInjured className="info-card-icon" />
+            <h3>Demographic Information</h3>
           </div>
 
           <div className="info-row">
-            <span className="label">Gender</span>
+            <span className="label">Full Age</span>
+            <span className="value">{patient.age} Years</span>
+          </div>
+
+          <div className="info-row">
+            <span className="label">Biological Sex</span>
             <span className="value">{patient.gender}</span>
           </div>
 
           <div className="info-row">
-            <span className="label">Contact</span>
-            <span className="value">{patient.contact}</span>
+            <span className="label">Contact Phone</span>
+            <span className="value">
+              <FaPhone className="inline-meta-icon" /> {patient.contact}
+            </span>
           </div>
-
         </div>
 
-        {/* MEDICAL */}
-
+        {/* MEDICAL CARD */}
         <div className="info-card">
-
-          <h3>Medical Details</h3>
+          <div className="info-card-header">
+            <BsActivity className="info-card-icon" />
+            <h3>Clinical Status & Vitals</h3>
+          </div>
 
           <div className="info-row">
             <span className="label">Blood Group</span>
-            <span className="value">
-              {patient.bloodGroup || "N/A"}
+            <span className="value blood-highlight">
+              <FaTint className="inline-meta-icon" /> {patient.bloodGroup || "Not Specified"}
             </span>
           </div>
 
           <div className="info-row">
-            <span className="label">Status</span>
-
-            <span className={`status ${patient.status}`}>
-              {patient.status}
+            <span className="label">Clinical Triage</span>
+            <span className={`status status-${patient.status?.toLowerCase()}`}>
+              <span className="status-dot"></span>
+              {patient.status || "ACTIVE"}
             </span>
           </div>
-
         </div>
 
-        {/* NOTES */}
-
-        <div className="info-card">
-
-          <h3>Medical Notes</h3>
-
-          <div className="notes-box">
-            {patient.medicalNotes || "No medical notes available"}
+        {/* NOTES CARD */}
+        <div className="info-card info-card-full">
+          <div className="info-card-header">
+            <BsFileEarmarkTextFill className="info-card-icon" />
+            <h3>Medical History & Clinical Observations</h3>
           </div>
 
+          <div className="notes-box">
+            {patient.medicalNotes ? (
+              <p>{patient.medicalNotes}</p>
+            ) : (
+              <p className="empty-notes-text">No active medical restrictions or notes recorded.</p>
+            )}
+          </div>
         </div>
-
       </div>
 
+      {/* COMPLIANCE FOOTER */}
+      <div className="profile-compliance-banner">
+        <BsShieldLock />
+        <span>Confidential Electronic Health Record (EHR) • Access restricted to authorized medical staff and patient</span>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import API from "../api";
 import "../styles/patient.css";
-import "../styles/chatbox.css"
+import "../styles/chatbox.css";
 import ChatBox from "../components/ChatBox.jsx";
 import { useNavigate } from "react-router-dom";
+import { FaUserInjured, FaArrowLeft, FaEdit, FaTrash, FaPlus, FaCheck, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { BsThreeDotsVertical, BsInbox } from "react-icons/bs";
 
 export default function Patients() {
   const navigate = useNavigate();
@@ -11,7 +13,7 @@ export default function Patients() {
   const [patients, setPatients] = useState([]);
   const [editingId, setEditingId] = useState(null);
 
-  //Pagination state
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 5;
 
@@ -33,7 +35,6 @@ export default function Patients() {
 
   const fetchPatients = async () => {
     try {
-
       const user = JSON.parse(localStorage.getItem("user"));
 
       const res = await API.get("/patients", {
@@ -44,7 +45,6 @@ export default function Patients() {
       });
 
       setPatients(res.data);
-
     } catch (error) {
       console.error("Error fetching patients", error);
     }
@@ -53,7 +53,6 @@ export default function Patients() {
   useEffect(() => {
     fetchPatients();
   }, []);
-
 
   // Pagination Logic
   const indexOfLast = currentPage * recordsPerPage;
@@ -89,7 +88,7 @@ export default function Patients() {
 
       fetchPatients();
       resetForm();
-      setCurrentPage(1); //reset page
+      setCurrentPage(1); // reset page
     } catch (err) {
       alert("Error creating patient");
     }
@@ -103,6 +102,7 @@ export default function Patients() {
       gender: patient.gender,
       contact: patient.contact,
       email: patient.user?.email || "",
+      password: "",
       bloodGroup: patient.bloodGroup || "",
       status: patient.status || "",
       medicalNotes: patient.medicalNotes || "",
@@ -115,34 +115,39 @@ export default function Patients() {
     try {
       if (!validate()) return;
 
+      const user = JSON.parse(localStorage.getItem("user"));
+
       await API.put(`/patients/${editingId}`, form, {
-        headers: { role: getUserRole() },
+        headers: { role: user?.role },
       });
 
       fetchPatients();
       resetForm();
-    } catch (error) {
-      alert(error.response?.data?.error || "Failed to update patient");
+      setCurrentPage(1);
+    } catch (err) {
+      alert("Error updating patient");
     }
   };
 
   // Delete
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete?")) return;
+    if (!window.confirm("Are you sure you want to delete this patient profile?")) return;
 
     try {
+      const user = JSON.parse(localStorage.getItem("user"));
+
       await API.delete(`/patients/${id}`, {
-        headers: { role: getUserRole() },
+        headers: { role: user?.role },
       });
 
       fetchPatients();
       setCurrentPage(1);
-    } catch (error) {
-      alert(error.response?.data?.error || "Failed to delete patient");
+    } catch (err) {
+      alert("Error deleting patient");
     }
   };
 
-  // Reset form
+  // Reset Form
   const resetForm = () => {
     setForm({
       name: "",
@@ -163,21 +168,29 @@ export default function Patients() {
     <div className="patients-page">
       {/* Header */}
       <div className="header">
-        <h2>Patient Management</h2>
-        <button
-          className="back-btn"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-        <span>{patients.length} records</span>
+        <div className="header-title-group">
+          <button
+            className="back-btn"
+            onClick={() => navigate(-1)}
+            title="Go back"
+          >
+            <FaArrowLeft />
+            <span>Back</span>
+          </button>
+          <h2>
+            <FaUserInjured className="header-icon" />
+            <span>Patient Management</span>
+          </h2>
+        </div>
+        <span className="header-badge">{patients.length} Records</span>
       </div>
 
-      {/* Form */}
+      {/* Form Panel */}
       <div className="form">
         <div className="form-group">
+          <label className="form-label">Patient Name</label>
           <input
-            placeholder="Name"
+            placeholder="Full Name"
             value={form.name}
             onChange={(e) => {
               setForm({ ...form, name: e.target.value });
@@ -188,6 +201,7 @@ export default function Patients() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">Age</label>
           <input
             type="number"
             placeholder="Age"
@@ -201,6 +215,7 @@ export default function Patients() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">Gender</label>
           <select
             value={form.gender}
             onChange={(e) => {
@@ -208,7 +223,7 @@ export default function Patients() {
               setErrors({ ...errors, gender: "" });
             }}
           >
-            <option value="">Gender</option>
+            <option value="">Select Gender</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
           </select>
@@ -216,8 +231,9 @@ export default function Patients() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">Contact Phone</label>
           <input
-            placeholder="Contact"
+            placeholder="Contact phone"
             value={form.contact}
             onChange={(e) => {
               setForm({ ...form, contact: e.target.value });
@@ -226,7 +242,9 @@ export default function Patients() {
           />
           {errors.contact && <span className="error">{errors.contact}</span>}
         </div>
+
         <div className="form-group">
+          <label className="form-label">Blood Group</label>
           <select
             value={form.bloodGroup}
             onChange={(e) => {
@@ -234,7 +252,7 @@ export default function Patients() {
               setErrors({ ...errors, bloodGroup: "" });
             }}
           >
-            <option value="">Blood Group</option>
+            <option value="">Select Blood Group</option>
             <option value="A+">A+</option>
             <option value="A-">A-</option>
             <option value="B+">B+</option>
@@ -246,7 +264,9 @@ export default function Patients() {
           </select>
           {errors.bloodGroup && <span className="error">{errors.bloodGroup}</span>}
         </div>
+
         <div className="form-group">
+          <label className="form-label">Clinical Status</label>
           <select
             value={form.status}
             onChange={(e) => {
@@ -254,28 +274,34 @@ export default function Patients() {
               setErrors({ ...errors, status: "" });
             }}
           >
-            <option value="">Status</option>
+            <option value="">Select Status</option>
             <option value="ACTIVE">Active</option>
             <option value="CRITICAL">Critical</option>
             <option value="DISCHARGED">Discharged</option>
           </select>
           {errors.status && <span className="error">{errors.status}</span>}
         </div>
+
         <div className="form-group">
+          <label className="form-label">Email Address</label>
           <input
-            placeholder="Email"
+            placeholder="patient@mail.com"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
         </div>
+
         <div className="form-group">
+          <label className="form-label">Medical Notes</label>
           <input
-            placeholder="Medical Notes"
+            placeholder="e.g. Allergy, hypertension history"
             value={form.medicalNotes}
             onChange={(e) => setForm({ ...form, medicalNotes: e.target.value })}
           />
         </div>
+
         <div className="form-group">
+          <label className="form-label">Password {editingId && "(Leave blank to keep)"}</label>
           <input
             type="password"
             placeholder="Password"
@@ -283,92 +309,126 @@ export default function Patients() {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
         </div>
-        {editingId ? (
-          <button onClick={handleUpdate}>Update</button>
-        ) : (
-          <button onClick={handleCreate}>Add</button>
-        )}
+
+        <div className="form-actions-row">
+          {editingId ? (
+            <>
+              <button className="update-btn" onClick={handleUpdate}>
+                <FaCheck />
+                <span>Save Changes</span>
+              </button>
+              <button className="cancel-btn" onClick={resetForm}>
+                <FaTimes />
+                <span>Cancel</span>
+              </button>
+            </>
+          ) : (
+            <button className="add-btn" onClick={handleCreate}>
+              <FaPlus />
+              <span>Register Patient</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
       <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Age</th>
-              <th>Gender</th>
-              <th>Contact</th>
-              <th>Blood Group</th>
-              <th>Status</th>
-              <th>Email</th>
-              <th>Medical Notes</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+        {patients.length === 0 ? (
+          <div className="empty">
+            <BsInbox size={28} style={{ marginBottom: "8px", opacity: 0.5 }} />
+            <p>No patient records registered</p>
+          </div>
+        ) : (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Age / Sex</th>
+                  <th>Contact</th>
+                  <th>Blood</th>
+                  <th>Clinical Status</th>
+                  <th>Email</th>
+                  <th>Medical Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
 
-          <tbody>
-            {currentPatients.map((p) => (
-              <tr key={p.id}>
-                <td>{p.name}</td>
-                <td>{p.age}</td>
-                <td>{p.gender}</td>
-                <td>{p.contact}</td>
-                <td>{p.bloodGroup || "N/A"}</td>
-                <td>
-                  <span className={`status ${p.status?.toLowerCase()}`}>
-                    {p.status || "N/A"}
-                  </span>
-                </td>
-                <td>{p.user?.email || "N/A"}</td>
-                <td>{p.medicalNotes || "N/A"}</td>
-                <td>
-                  <div className="action-menu">
-                    <span className="dots">⋮</span>
+              <tbody>
+                {currentPatients.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <div className="table-cell-bold">{p.name}</div>
+                    </td>
+                    <td>
+                      <span>{p.age} yrs • {p.gender}</span>
+                    </td>
+                    <td>
+                      <span className="table-cell-muted">{p.contact}</span>
+                    </td>
+                    <td>
+                      <span className="blood-group-badge">{p.bloodGroup || "N/A"}</span>
+                    </td>
+                    <td>
+                      <span className={`status status-${p.status?.toLowerCase()}`}>
+                        <span className="status-dot"></span>
+                        {p.status || "N/A"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="table-cell-muted">{p.user?.email || "—"}</span>
+                    </td>
+                    <td>
+                      <span className="notes-snippet">{p.medicalNotes || "—"}</span>
+                    </td>
+                    <td>
+                      <div className="action-menu">
+                        <button className="dots-btn" title="Actions">
+                          <BsThreeDotsVertical />
+                        </button>
 
-                    <div className="dropdown">
-                      <button onClick={() => handleEdit(p)}>Edit</button>
-                      <button onClick={() => handleDelete(p.id)}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {/* Pagination UI */}
-        <div className="pagination">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-          >
-            Prev
-          </button>
+                        <div className="dropdown">
+                          <button onClick={() => handleEdit(p)}>
+                            <FaEdit /> Edit
+                          </button>
+                          <button className="delete-opt" onClick={() => handleDelete(p.id)}>
+                            <FaTrash /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          {[...Array(totalPages)].map((_, i) => (
-            <button
-              key={i}
-              className={currentPage === i + 1 ? "active" : ""}
-              onClick={() => setCurrentPage(i + 1)}
-            >
-              {i + 1}
-            </button>
-          ))}
+            {/* Pagination UI */}
+            <div className="pagination">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+              >
+                <FaChevronLeft />
+                <span>Prev</span>
+              </button>
 
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-          >
-            Next
-          </button>
-        </div>
-        <div className="patients-page">
-          <ChatBox />
-        </div>
+              <span className="pagination-page-indicator">
+                Page {currentPage} of {totalPages || 1}
+              </span>
+
+              <button
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage(currentPage + 1)}
+              >
+                <span>Next</span>
+                <FaChevronRight />
+              </button>
+            </div>
+          </>
+        )}
       </div>
+
+      <ChatBox />
     </div>
   );
-
 }

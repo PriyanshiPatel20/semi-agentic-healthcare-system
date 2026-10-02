@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import API from "../api";
 import "../styles/appointment.css";
 import { useNavigate } from "react-router-dom";
-
+import { BsCalendar2Check, BsCalendarCheck, BsClock, BsInbox } from "react-icons/bs";
+import { FaArrowLeft, FaChevronLeft, FaChevronRight, FaUserMd, FaUserInjured } from "react-icons/fa";
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -136,20 +137,26 @@ export default function Appointments() {
     <div className="appointment-page">
       {/* Header */}
       <div className="header">
-        <h2>Appointment Management</h2>
-         <button
-      className="back-btn"
-      onClick={() => navigate(-1)}
-    >
-       Back
-    </button>
-        <span>Page {page} of {totalPages}</span>
+        <div className="header-title-group">
+          <button className="back-btn" onClick={() => navigate(-1)} title="Go back">
+            <FaArrowLeft />
+            <span>Back</span>
+          </button>
+          <h2>
+            <BsCalendar2Check className="header-icon" />
+            <span>Appointment Management</span>
+          </h2>
+        </div>
+        <span className="header-badge">Page {page} of {totalPages || 1}</span>
       </div>
 
-      {/* Form */}
+      {/* Booking Form Panel */}
       <div className="form">
         {user?.role !== "patient" && (
           <div className="form-group">
+            <label className="form-label">
+              <FaUserInjured className="label-icon" /> Select Patient
+            </label>
             <select
               value={form.patientId}
               onChange={(e) => {
@@ -169,6 +176,9 @@ export default function Appointments() {
         )}
 
         <div className="form-group">
+          <label className="form-label">
+            <FaUserMd className="label-icon" /> Attending Physician
+          </label>
           <select
             value={form.doctorId}
             onChange={(e) => {
@@ -187,6 +197,9 @@ export default function Appointments() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">
+            <BsCalendarCheck className="label-icon" /> Consultation Date
+          </label>
           <input
             type="date"
             value={form.date}
@@ -199,6 +212,9 @@ export default function Appointments() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">
+            <BsClock className="label-icon" /> Time Slot
+          </label>
           <input
             type="time"
             value={form.time}
@@ -210,37 +226,55 @@ export default function Appointments() {
           {errors.time && <span className="error">{errors.time}</span>}
         </div>
 
-        <button onClick={handleCreate}>Book</button>
+        <button className="book-btn" onClick={handleCreate}>
+          <BsCalendarCheck />
+          <span>Book Appointment</span>
+        </button>
       </div>
 
       {/* Table */}
       <div className="table-wrapper">
         {appointments.length === 0 ? (
-          <div className="empty">No appointments found</div>
+          <div className="empty">
+            <BsInbox size={28} style={{ marginBottom: "8px", opacity: 0.5 }} />
+            <p>No appointments recorded for this criteria</p>
+          </div>
         ) : (
           <table>
             <thead>
               <tr>
                 {user?.role !== "patient" && <th>Patient</th>}
-                {user?.role !== "patient" && <th>Email</th>}
-                <th>Doctor</th>
-                <th>Date</th>
-                <th>Time</th>
+                {user?.role !== "patient" && <th>Contact Email</th>}
+                <th>Attending Doctor</th>
+                <th>Scheduled Date</th>
+                <th>Time Slot</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {appointments.map((a) => (
                 <tr key={a.id}>
-                  {user?.role !== "patient" && <td>{a.patient?.name}</td>}
-                  {user?.role !== "patient" && <td>{a.patient?.user?.email}</td>}
+                  {user?.role !== "patient" && (
+                    <td>
+                      <div className="table-cell-bold">{a.patient?.name || "N/A"}</div>
+                    </td>
+                  )}
+                  {user?.role !== "patient" && (
+                    <td>
+                      <span className="table-cell-muted">{a.patient?.user?.email || "—"}</span>
+                    </td>
+                  )}
                   <td>
-                    {a.doctor?.name} ({a.doctor?.specialty})
+                    <div className="table-cell-bold">{a.doctor?.name}</div>
+                    <span className="doctor-specialty-chip">{a.doctor?.specialty}</span>
                   </td>
-                  <td>{new Date(a.date).toDateString()}</td>
+                  <td>{new Date(a.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                   <td>{a.time || "—"}</td>
                   <td>
-                    <span className="status">Scheduled</span>
+                    <span className="status status-scheduled">
+                      <span className="status-dot"></span>
+                      Scheduled
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -249,23 +283,24 @@ export default function Appointments() {
         )}
       </div>
 
-
-      {/*  Pagination Controls */}
+      {/* Pagination Controls */}
       <div className="pagination">
         <button
           disabled={page === 1}
           onClick={() => setPage(page - 1)}
         >
-          Prev
+          <FaChevronLeft />
+          <span>Prev</span>
         </button>
 
-        <span>{page}</span>
+        <span className="pagination-page-indicator">Page {page} of {totalPages || 1}</span>
 
         <button
-          disabled={page === totalPages}
+          disabled={page === totalPages || totalPages === 0}
           onClick={() => setPage(page + 1)}
         >
-          Next
+          <span>Next</span>
+          <FaChevronRight />
         </button>
       </div>
     </div>

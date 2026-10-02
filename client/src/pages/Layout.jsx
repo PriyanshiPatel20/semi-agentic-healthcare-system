@@ -142,7 +142,10 @@ export default function Layout() {
         {/* Top Header Bar */}
         <header className="clinic-topbar">
           <div className="topbar-search-bar">
-            <span className="topbar-status-indicator">HMS Operational</span>
+            <span className="topbar-status-indicator">
+              <span className="pulse-dot"></span>
+              <span>HMS Operational • Clinical Services</span>
+            </span>
           </div>
 
           <div className="topbar-actions">
