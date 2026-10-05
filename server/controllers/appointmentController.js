@@ -1,4 +1,5 @@
 import prisma from "../prisma/client.js";
+import { processReminders } from "../utils/reminderCron.js";
 
 // BOOK APPOINTMENT
 export const createAppointment = async (req, res) => {
@@ -13,6 +14,9 @@ export const createAppointment = async (req, res) => {
       },
     });
     res.status(201).json(appointment);
+
+    // Process reminders immediately so patient and doctor don't wait for next cron tick
+    processReminders().catch((e) => console.error("Immediate reminder trigger error:", e.message));
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Failed to create appointment" });

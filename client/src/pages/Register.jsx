@@ -26,7 +26,7 @@ export default function Register() {
         alert("Please fill in all required primary fields");
         return;
       }
-      setLoading(false);
+      setLoading(true);
       await API.post("/auth/register", form);
       alert("Registration successful. Please sign in.");
       window.location.href = "/";

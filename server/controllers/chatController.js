@@ -103,23 +103,27 @@ export const chatWithAI = async (req, res) => {
 
     console.log(`[Chat Controller] Conversation History Context (${historyLines.length} messages):\n${historyLines.join("\n") || "(None)"}`);
 
-    // Fetch doctors and specialties dynamically from database
-    const doctors = await prisma.doctor.findMany();
+    // Fetch unique hospital specialties dynamically from database (lean query)
+    const specialtyRecords = await prisma.doctor.findMany({
+      where: { specialty: { not: "" } },
+      select: { specialty: true },
+      distinct: ["specialty"],
+    });
+
     const availableSpecialties = [
-      ...new Set(doctors.map((doctor) => doctor.specialty).filter(Boolean)),
+      ...new Set(
+        specialtyRecords
+          .map((d) => d.specialty?.trim())
+          .filter(Boolean)
+      ),
     ];
-    const specialtyList = availableSpecialties.length > 0
-      ? availableSpecialties.join(", ")
-      : "General Physician";
 
-    const doctorListPrompt = doctors
-      .map(
-        (d) =>
-          `- Dr. ${d.name.replace(/^Dr\.\s*/i, "")} (ID: ${d.id}, Specialty: ${d.specialty || "General"})`
-      )
-      .join("\n");
+    const specialtyList =
+      availableSpecialties.length > 0
+        ? availableSpecialties.join(", ")
+        : "General Physician";
 
-    console.log(`[Chat Controller] Dynamically loaded ${doctors.length} doctors with specialties: [${specialtyList}]`);
+    console.log(`[Chat Controller] Dynamically loaded ${availableSpecialties.length} hospital specialties: [${specialtyList}]`);
 
     // Model candidate list (prioritizing high-availability fast models)
     const RETIRED_MODELS = new Set([
@@ -159,32 +163,29 @@ ${historySection}
 Patient's current message:
 "${message}"
 
-Available doctors and specialties currently at our hospital:
-${doctorListPrompt}
+Hospital Medical Specialties available:
+${specialtyList}
 
 INSTRUCTIONS:
 1. CONVERSATION CONTEXT:
    - Remember and consider the recent conversation history above so you can answer follow-up questions accurately.
 2. SHORT LENGTH CONSTRAINT:
    - Your "reply" MUST BE SHORT: STRICTLY MAXIMUM 30 WORDS (1 to 2 brief sentences).
-   - Do NOT write lengthy explanations. Give direct, empathetic advice and recommend the specialist concisely.
-   - Mention the doctor naturally by name (e.g. Dr. Ajay), never include raw ID numbers in your reply.
-3. DOCTOR SUGGESTION:
+   - Do NOT write lengthy explanations. Give direct, empathetic advice and recommend consulting the appropriate specialist concisely.
+3. SPECIALTY SUGGESTION:
    - If health symptoms or follow-up questions are discussed:
      - Provide brief initial care advice under 30 words.
      - Match the condition to the most appropriate specialty from the hospital's available specialties (${specialtyList}).
-     - Select the matching doctor ID from the available doctors list above.
      - Set "isMedical" to true.
    - If the message is a greeting (e.g. "hi", "hello") or unrelated to health/symptoms:
      - Greet them politely and briefly (under 20 words).
-     - Set "isMedical" to false, "specialty" to null, and "doctorId" to null.
+     - Set "isMedical" to false and "specialty" to null.
 
 RETURN ONLY A VALID JSON OBJECT:
 {
   "reply": "Brief medical advice or guidance (MAXIMUM 30 WORDS)",
   "isMedical": true or false,
-  "specialty": "Matching specialty name from the available doctors list, or null",
-  "doctorId": Doctor integer ID from list above, or null
+  "specialty": "Matching specialty name from the available specialties list, or null"
 }
     `.trim();
 
@@ -258,7 +259,6 @@ RETURN ONLY A VALID JSON OBJECT:
     // Parse the structured JSON response
     let reply = "Please describe your symptoms or ask a health-related question, and I will provide advice and suggest a doctor.";
     let detectedSpecialty = null;
-    let detectedDoctorId = null;
     let isMedical = false;
 
     if (modelSucceeded) {
@@ -271,7 +271,6 @@ RETURN ONLY A VALID JSON OBJECT:
           reply = trimToMaxWords(parsed.reply || reply, 30);
           isMedical = Boolean(parsed.isMedical);
           detectedSpecialty = parsed.specialty || null;
-          detectedDoctorId = parsed.doctorId ? Number(parsed.doctorId) : null;
         }
       } catch (e) {
         console.warn("⚠️ [Chat Controller] JSON parse fallback on AI output:", e.message);
@@ -281,30 +280,65 @@ RETURN ONLY A VALID JSON OBJECT:
       reply = "Our clinical assistant is experiencing a momentary connection delay. Please describe your symptoms again, or consult one of our hospital doctors directly.";
     }
 
-    // Match doctor dynamically from database
+    // Backend queries the database for the matching doctor
     let doctor = null;
     let specialty = null;
 
-    if (isMedical) {
-      if (detectedDoctorId) {
-        const matched = doctors.find((d) => d.id === detectedDoctorId);
-        if (matched) {
-          doctor = formatDoctor(matched);
-          specialty = matched.specialty;
-          console.log(`👨‍⚕️ [Chat Controller] AI matched Doctor by ID: ${doctor.name} (${specialty}, ID: ${doctor.id})`);
+    if (isMedical && detectedSpecialty) {
+      // 1. Direct match on specialty from database (MySQL matches case-insensitively)
+      let matched = await prisma.doctor.findFirst({
+        where: {
+          specialty: {
+            contains: detectedSpecialty.trim(),
+          },
+        },
+        orderBy: {
+          id: "asc",
+        },
+      });
+
+      // 2. Fallback: match normalized specialty from available list
+      if (!matched) {
+        const normalizedTarget = normalizeSpecialty(detectedSpecialty);
+        const bestSpecialty = availableSpecialties.find((sp) => {
+          const normSp = normalizeSpecialty(sp);
+          return (
+            normSp === normalizedTarget ||
+            normSp.includes(normalizedTarget) ||
+            normalizedTarget.includes(normSp)
+          );
+        });
+
+        if (bestSpecialty) {
+          matched = await prisma.doctor.findFirst({
+            where: {
+              specialty: bestSpecialty,
+            },
+            orderBy: {
+              id: "asc",
+            },
+          });
         }
       }
 
-      if (!doctor && detectedSpecialty) {
-        const matched = findSuggestedDoctor(doctors, detectedSpecialty);
-        if (matched) {
-          doctor = formatDoctor(matched);
-          specialty = matched.specialty;
-          console.log(`👨‍⚕️ [Chat Controller] Doctor matched by specialty: ${doctor.name} (${specialty}, ID: ${doctor.id})`);
-        } else {
-          specialty = detectedSpecialty;
-          console.log(`ℹ️ [Chat Controller] AI suggested specialty "${detectedSpecialty}", but no direct match in DB`);
-        }
+      // 3. Fallback to General Physician if available
+      if (!matched) {
+        matched = await prisma.doctor.findFirst({
+          where: {
+            specialty: {
+              contains: "General",
+            },
+          },
+        });
+      }
+
+      if (matched) {
+        doctor = formatDoctor(matched);
+        specialty = matched.specialty;
+        console.log(`👨‍⚕️ [Chat Controller] Doctor matched from DB by specialty "${detectedSpecialty}": ${doctor.name} (${specialty}, ID: ${doctor.id})`);
+      } else {
+        specialty = detectedSpecialty;
+        console.log(`ℹ️ [Chat Controller] AI suggested specialty "${detectedSpecialty}", but no doctor found in DB`);
       }
     } else {
       console.log("ℹ️ [Chat Controller] Non-medical query; doctor card suppressed");
