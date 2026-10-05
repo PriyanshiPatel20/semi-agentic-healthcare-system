@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import "../styles/layout.css";
-import { BsHospital, BsCalendar2Check, BsPeople, BsActivity, BsShieldLock } from "react-icons/bs";
+import { BsHospital, BsCalendar2Check, BsPeople, BsActivity, BsShieldLock, BsFileEarmarkMedical } from "react-icons/bs";
 import { FaUserMd, FaUserInjured, FaSignOutAlt, FaBell } from "react-icons/fa";
 import API from "../api";
 
@@ -117,6 +117,10 @@ export default function Layout() {
               <NavLink to="/patient-doctors" className={({ isActive }) => isActive ? "sidebar-link active" : "sidebar-link"}>
                 <FaUserMd className="link-icon" />
                 <span>Find & Book Doctor</span>
+              </NavLink>
+              <NavLink to="/patient-notes" className={({ isActive }) => isActive ? "sidebar-link active" : "sidebar-link"}>
+                <BsFileEarmarkMedical className="link-icon" />
+                <span>Consultation Notes</span>
               </NavLink>
             </>
           )}

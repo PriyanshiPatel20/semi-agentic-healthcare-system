@@ -12,6 +12,7 @@ import PatientDoctors from "./pages/PatientDoctors";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PatientProfile from "./pages/PatientProfile";
+import PatientNotesPage from "./pages/PatientNotesPage";
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="/patient-doctors" element={<PatientDoctors />} />
           <Route path="/patients-details" element={<PatientsDetails />} />
           <Route path="/patient-profile" element={<PatientProfile />} />
+          <Route path="/patient-notes" element={<PatientNotesPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

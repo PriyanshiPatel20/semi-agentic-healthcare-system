@@ -4,8 +4,6 @@ import "../styles/patientDoctors.css";
 import ChatBox from "../components/ChatBox";
 import { toast } from "react-toastify";
 
-import PatientNoteCard from "../components/PatientNoteCard";
-
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
@@ -512,9 +510,6 @@ export default function PatientDoctors() {
         </button>
 
       </div>
-
-      {/* PATIENT HEALTH NOTES */}
-      <PatientNoteCard />
 
       {/* AI CHAT */}
       <ChatBox />

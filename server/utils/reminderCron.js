@@ -20,7 +20,7 @@ export const processReminders = async () => {
     isProcessing = true;
 
     try {
-        console.log("🔔 [Reminder Processor] Checking appointments for reminders...");
+        console.log("[Reminder Processor] Checking appointments for reminders...");
 
         const appointments = await prisma.appointment.findMany({
             include: {

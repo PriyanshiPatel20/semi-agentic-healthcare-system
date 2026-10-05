@@ -6,6 +6,7 @@ import {
   FaPills, FaCalendarAlt, FaEye, FaLightbulb, FaExclamationTriangle,
   FaCheckCircle, FaTimes, FaRedo, FaClipboardList, FaHistory,
   FaPlus, FaStar, FaCommentMedical, FaUserMd, FaEdit,
+  FaUser, FaTrash, FaExchangeAlt, FaComments,
 } from "react-icons/fa";
 import { BsFileEarmarkTextFill } from "react-icons/bs";
 import { MdRecordVoiceOver, MdOutlineSummarize } from "react-icons/md";
@@ -139,6 +140,8 @@ export default function ConsultationNote({ patient }) {
 
   // AI & Note State
   const [transcript, setTranscript] = useState("");
+  const [dialogueTurns, setDialogueTurns] = useState([]);
+  const [transcriptView, setTranscriptView] = useState("cards"); // 'cards' | 'raw'
   const [soapData, setSoapData] = useState(null);
   const [soapNote, setSoapNote] = useState("");
   const [editedData, setEditedData] = useState(null);
@@ -198,6 +201,8 @@ export default function ConsultationNote({ patient }) {
     setAudioBlob(null);
     setUploadedFileName("");
     setTranscript("");
+    setDialogueTurns([]);
+    setTranscriptView("cards");
     setSoapData(null);
     setSoapNote("");
     setEditedData(null);
@@ -377,7 +382,16 @@ export default function ConsultationNote({ patient }) {
       });
 
       console.log(" [AI Note Writer] Transcription received:", res.data);
-      setTranscript(res.data.transcript || "");
+      const formatted = res.data.transcript || "";
+      setTranscript(formatted);
+
+      if (Array.isArray(res.data.dialogue) && res.data.dialogue.length > 0) {
+        setDialogueTurns(res.data.dialogue);
+      } else {
+        setDialogueTurns(parseTranscriptDialogue(formatted));
+      }
+
+      setTranscriptView("cards");
       // Move to Step 2 (Review Transcript)
       setCurrentStep(2);
     } catch (err) {
@@ -397,6 +411,283 @@ export default function ConsultationNote({ patient }) {
       setLoading(false);
       setLoadingMsg("");
     }
+  };
+
+  // ── DIALOGUE / SPEAKER CONVERSATION HELPERS ──
+  const serializeDialogue = (turns) => {
+    return turns
+      .filter((t) => t.text && t.text.trim())
+      .map((t) => `${t.speaker}: "${t.text.replace(/^["']|["']$/g, "").trim()}"`)
+      .join("\n\n");
+  };
+
+  const parseTranscriptDialogue = (raw) => {
+    if (!raw || !raw.trim()) return [];
+
+    const clean = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    // 1. Try parsing JSON array directly: [ { "speaker": "Doctor", "text": "..." }, ... ]
+    try {
+      const arrayStart = clean.indexOf("[");
+      const arrayEnd = clean.lastIndexOf("]");
+      if (arrayStart !== -1 && arrayEnd > arrayStart) {
+        const parsedArray = JSON.parse(clean.substring(arrayStart, arrayEnd + 1));
+        if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+          const turns = parsedArray
+            .map((item) => ({
+              speaker: (item.speaker || "").toLowerCase().includes("pat")
+                ? "Patient"
+                : (item.speaker || "").toLowerCase().includes("care")
+                ? "Caregiver"
+                : "Doctor",
+              text: (item.text || "").replace(/^["']|["']$/g, "").trim(),
+            }))
+            .filter((t) => t.text.length > 0);
+          if (turns.length > 0) return turns;
+        }
+      }
+
+      // 2. Try parsing JSON object: { "dialogue": [ ... ] } or { "turns": [ ... ] }
+      const objStart = clean.indexOf("{");
+      const objEnd = clean.lastIndexOf("}");
+      if (objStart !== -1 && objEnd > objStart) {
+        const parsedObj = JSON.parse(clean.substring(objStart, objEnd + 1));
+        const arr = parsedObj.dialogue || parsedObj.conversation || parsedObj.turns;
+        if (Array.isArray(arr) && arr.length > 0) {
+          const turns = arr
+            .map((item) => ({
+              speaker: (item.speaker || "").toLowerCase().includes("pat")
+                ? "Patient"
+                : (item.speaker || "").toLowerCase().includes("care")
+                ? "Caregiver"
+                : "Doctor",
+              text: (item.text || "").replace(/^["']|["']$/g, "").trim(),
+            }))
+            .filter((t) => t.text.length > 0);
+          if (turns.length > 0) return turns;
+        }
+      }
+    } catch (e) {
+      // Continue to line and delimiter parser
+    }
+
+    // 3. Line-by-line speaker tag parser (handles **Doctor:**, **Doctor**: , Doctor:, [Doctor]:, etc.)
+    const lines = clean.split(/\r?\n/);
+    const turns = [];
+    let currentSpeaker = null;
+    let currentText = "";
+
+    const speakerLineRegex = /^\s*(?:\*{1,2}|#{1,4}|\[)?\s*(Doctor|Dr\.?|Patient|Pt\.?|Caregiver|Nurse)\s*(?:\*{1,2}|\])?\s*[:\-–—]?\s*(?:\*{1,2})?\s*[:\-–—]?\s*(.*)$/i;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      const match = trimmed.match(speakerLineRegex);
+      if (match) {
+        const rawSp = match[1].toLowerCase();
+        const nextSpeaker = rawSp.startsWith("dr") || rawSp.startsWith("doc")
+          ? "Doctor"
+          : rawSp.startsWith("pt") || rawSp.startsWith("pat")
+          ? "Patient"
+          : "Caregiver";
+        const lineContent = (match[2] || "").replace(/^["']|["']$/g, "").trim();
+
+        if (currentSpeaker && currentText.trim()) {
+          turns.push({ speaker: currentSpeaker, text: currentText.trim() });
+        }
+        currentSpeaker = nextSpeaker;
+        currentText = lineContent;
+      } else {
+        if (currentSpeaker) {
+          currentText = currentText ? `${currentText} ${trimmed}` : trimmed;
+        } else {
+          currentText = currentText ? `${currentText} ${trimmed}` : trimmed;
+        }
+      }
+    }
+
+    if (currentSpeaker && currentText.trim()) {
+      turns.push({ speaker: currentSpeaker, text: currentText.trim() });
+    }
+
+    if (turns.length > 1) {
+      return turns;
+    }
+
+    // 4. Segment parser for inline markers
+    const inlineMarkerRegex = /(?:\*{1,2}|#{1,4}|\[)?\s*(Doctor|Dr\.?|Patient|Pt\.?|Caregiver|Nurse)\s*(?:\*{1,2}|\])?\s*[:\-–—]\s*(?:\*{1,2})?/gi;
+    const inlineMatches = [...clean.matchAll(inlineMarkerRegex)];
+    if (inlineMatches.length > 1) {
+      const segmentTurns = [];
+      for (let i = 0; i < inlineMatches.length; i++) {
+        const m = inlineMatches[i];
+        const speakerRaw = m[1].toLowerCase();
+        const speaker = speakerRaw.startsWith("dr") || speakerRaw.startsWith("doc")
+          ? "Doctor"
+          : speakerRaw.startsWith("pt") || speakerRaw.startsWith("pat")
+          ? "Patient"
+          : "Caregiver";
+        const startIndex = m.index + m[0].length;
+        const endIndex = i < inlineMatches.length - 1 ? inlineMatches[i + 1].index : clean.length;
+        const segmentText = clean.substring(startIndex, endIndex).replace(/^["']|["']$/g, "").trim();
+        if (segmentText) {
+          segmentTurns.push({ speaker, text: segmentText });
+        }
+      }
+      if (segmentTurns.length > 1) return segmentTurns;
+    }
+
+    // 5. Intelligent Clinical Sentence-level Dialogue Separator:
+    // When text is raw continuous consultation speech without explicit speaker tags,
+    // split into individual sentences and determine who is speaking (Doctor vs Patient)
+    const sentences = clean.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [clean];
+    if (sentences.length > 1) {
+      const separatedTurns = [];
+      let curSpeaker = null;
+      let curText = "";
+
+      for (const sentStr of sentences) {
+        const s = sentStr.trim();
+        if (!s) continue;
+
+        const lower = s.toLowerCase();
+
+        // Clinical questions, examinations, directives, instructions & advice -> DOCTOR
+        const isDoc =
+          /\b(how are you|how do you|how long|what is|what seems|what brings|where does|have you|do you|did you|are you|can you|let me|open your|breathe|lie down|bp|blood pressure|temperature|keep a|take each|take this|take the|prescribe|prescribed|dosage|dose|twice daily|once daily|after meals|before food|with water|do not change|do not combine|check with your doctor|apply the|avoid)\b/i.test(lower) ||
+          s.endsWith("?");
+
+        // Patient symptoms, complaints, answers, and disclosures -> PATIENT
+        const isPat =
+          /\b(i take|i have|i feel|i get|i forget|i sometimes|i am also|i'm also|i am taking|i'm taking|prescribed by my doctors|prescribed by my doctor|my knees|my knee|my head|my back|my chest|my stomach|pain|hurts|cough|fever|headache|thank you|thanks)\b/i.test(lower);
+
+        let speaker;
+        if (isDoc && !isPat) {
+          speaker = "Doctor";
+        } else if (isPat) {
+          speaker = "Patient";
+        } else if (s.endsWith("?")) {
+          speaker = "Doctor";
+        } else {
+          // If ambiguous, alternate speaker from previous turn
+          speaker = curSpeaker === "Doctor" ? "Patient" : "Doctor";
+        }
+
+        if (curSpeaker && speaker !== curSpeaker && curText.trim()) {
+          separatedTurns.push({ speaker: curSpeaker, text: curText.trim() });
+          curSpeaker = speaker;
+          curText = s;
+        } else {
+          curSpeaker = speaker;
+          curText = curText ? `${curText} ${s}` : s;
+        }
+      }
+
+      if (curSpeaker && curText.trim()) {
+        separatedTurns.push({ speaker: curSpeaker, text: curText.trim() });
+      }
+
+      if (separatedTurns.length > 1) {
+        return separatedTurns;
+      }
+    }
+
+    // Single turn fallback if only one sentence exists
+    return turns.length > 0 ? turns : [{ speaker: "Doctor", text: clean }];
+  };
+
+  const handleUpdateTurnText = (index, newText) => {
+    setDialogueTurns((prev) => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], text: newText };
+      }
+      setTranscript(serializeDialogue(updated));
+      return updated;
+    });
+  };
+
+  const handleToggleSpeaker = (index) => {
+    setDialogueTurns((prev) => {
+      const updated = [...prev];
+      if (updated[index]) {
+        const nextSpeaker = updated[index].speaker === "Doctor" ? "Patient" : "Doctor";
+        updated[index] = { ...updated[index], speaker: nextSpeaker };
+      }
+      setTranscript(serializeDialogue(updated));
+      return updated;
+    });
+  };
+
+  const handleDeleteTurn = (index) => {
+    setDialogueTurns((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      setTranscript(serializeDialogue(updated));
+      return updated;
+    });
+  };
+
+  const handleAddTurn = (speaker, afterIndex = null) => {
+    setDialogueTurns((prev) => {
+      const newTurn = { speaker, text: "" };
+      let updated;
+      if (afterIndex !== null && afterIndex >= 0 && afterIndex < prev.length) {
+        updated = [...prev.slice(0, afterIndex + 1), newTurn, ...prev.slice(afterIndex + 1)];
+      } else {
+        updated = [...prev, newTurn];
+      }
+      setTranscript(serializeDialogue(updated));
+      return updated;
+    });
+    setTranscriptView("cards");
+  };
+
+  const handleAutoFormatDialogue = async () => {
+    const textToFormat = (transcript && transcript.trim()) 
+      || (dialogueTurns && dialogueTurns.length > 0 ? serializeDialogue(dialogueTurns) : "");
+
+    if (!textToFormat) {
+      alert("Please enter or transcribe a consultation dialogue before formatting.");
+      return;
+    }
+
+    // 1. Immediately apply clinical dialogue separation to the cards
+    const immediateTurns = parseTranscriptDialogue(textToFormat);
+    if (immediateTurns.length > 0) {
+      setDialogueTurns(immediateTurns);
+      setTranscript(serializeDialogue(immediateTurns));
+      setTranscriptView("cards");
+    }
+
+    setLoading(true);
+    setLoadingMsg("AI is identifying who said what (Doctor vs Patient)...");
+    try {
+      const res = await API.post(
+        "/consultation-notes/format-dialogue",
+        { transcript: textToFormat, patient },
+        { headers: { role: user.role || "doctor", userid: user.id } }
+      );
+      if (res.data?.dialogue && res.data.dialogue.length > 0) {
+        setDialogueTurns(res.data.dialogue);
+      } else if (res.data?.formattedTranscript) {
+        setDialogueTurns(parseTranscriptDialogue(res.data.formattedTranscript));
+      }
+      if (res.data?.formattedTranscript) {
+        setTranscript(res.data.formattedTranscript);
+      }
+      setTranscriptView("cards");
+    } catch (err) {
+      console.warn("⚠️ [ConsultationNote] Format API error (kept local separation):", err);
+    } finally {
+      setLoading(false);
+      setLoadingMsg("");
+    }
+  };
+
+  const handleRawTextChange = (newVal) => {
+    setTranscript(newVal);
+    setDialogueTurns(parseTranscriptDialogue(newVal));
   };
 
   // ── STEP 2 → 3: GENERATE SOAP NOTE ──
@@ -741,7 +1032,12 @@ export default function ConsultationNote({ patient }) {
                           </button>
                           <button
                             className="consult-btn btn-outline"
-                            onClick={() => setCurrentStep(2)}
+                            onClick={() => {
+                              if (dialogueTurns.length === 0 && transcript) {
+                                setDialogueTurns(parseTranscriptDialogue(transcript));
+                              }
+                              setCurrentStep(2);
+                            }}
                             title="Skip audio and type transcript manually"
                           >
                             <FaEdit style={{ marginRight: 6 }} /> Type Manually Instead
@@ -784,7 +1080,12 @@ export default function ConsultationNote({ patient }) {
                             <button
                               className="consult-btn btn-outline"
                               style={{ fontSize: "13px" }}
-                              onClick={() => setCurrentStep(2)}
+                              onClick={() => {
+                                if (dialogueTurns.length === 0 && transcript) {
+                                  setDialogueTurns(parseTranscriptDialogue(transcript));
+                                }
+                                setCurrentStep(2);
+                              }}
                             >
                               <FaEdit style={{ marginRight: 6 }} /> Write / Paste Consultation Transcript Manually
                             </button>
@@ -801,24 +1102,164 @@ export default function ConsultationNote({ patient }) {
                     <div className="consult-section">
                       <div className="section-title">
                         <FaFileAlt className="section-title-icon" />
-                        Step 2 — Review &amp; Edit Consultation Transcript
+                        Step 2 — Doctor &amp; Patient Conversation Stream
                       </div>
                       <p style={{ fontSize: "13px", color: "#64748b", marginBottom: "12px" }}>
-                        Review the transcribed conversation. You can edit any mistakes or paste doctor-patient dialogue before AI generates the clinical note.
+                        AI has identified who is speaking. Review the dialogue below. You can edit any sentence, switch speaker, or add new statements before generating the note.
                       </p>
-                      <textarea
-                        className="transcript-box"
-                        value={transcript}
-                        onChange={(e) => setTranscript(e.target.value)}
-                        placeholder="Consultation transcript will appear here... You can also type or paste doctor-patient dialogue manually."
-                        rows={8}
-                      />
+
+                      {/* DIALOGUE TOOLBAR */}
+                      <div className="dialogue-toolbar">
+                        <div className="dialogue-view-toggle">
+                          <button
+                            type="button"
+                            className={`dialogue-toggle-btn ${transcriptView === "cards" ? "active" : ""}`}
+                            onClick={() => setTranscriptView("cards")}
+                          >
+                            <FaComments /> Dialogue Cards ({dialogueTurns.length})
+                          </button>
+                          <button
+                            type="button"
+                            className={`dialogue-toggle-btn ${transcriptView === "raw" ? "active" : ""}`}
+                            onClick={() => setTranscriptView("raw")}
+                          >
+                            <FaEdit /> Raw Text
+                          </button>
+                        </div>
+
+                        <div className="dialogue-quick-actions">
+                          <button
+                            type="button"
+                            className="speaker-badge-btn speaker-btn-doctor"
+                            onClick={() => handleAddTurn("Doctor")}
+                            title="Add a Doctor dialogue statement"
+                          >
+                            <FaPlus size={10} /> <FaUserMd /> Doctor Says
+                          </button>
+                          <button
+                            type="button"
+                            className="speaker-badge-btn speaker-btn-patient"
+                            onClick={() => handleAddTurn("Patient")}
+                            title="Add a Patient dialogue statement"
+                          >
+                            <FaPlus size={10} /> <FaUser /> Patient Says
+                          </button>
+                          <button
+                            type="button"
+                            className="speaker-badge-btn speaker-btn-ai"
+                            onClick={handleAutoFormatDialogue}
+                            disabled={loading || (!transcript.trim() && dialogueTurns.length === 0)}
+                            title="Let AI identify and separate Doctor vs Patient statements"
+                          >
+                            <HiOutlineSparkles /> Re-identify with AI
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* VIEW 1: DIALOGUE CARDS STREAM */}
+                      {transcriptView === "cards" && (
+                        <div className="dialogue-cards-list">
+                          {dialogueTurns.length === 0 ? (
+                            <div style={{ textAlign: "center", padding: "32px 16px", color: "#94a3b8" }}>
+                              <p>No dialogue recorded yet. Click <strong>+ Doctor Says</strong> or <strong>+ Patient Says</strong>, or switch to <strong>Raw Text</strong> to paste dialogue.</p>
+                            </div>
+                          ) : (
+                            dialogueTurns.map((turn, idx) => {
+                              const isDoc = turn.speaker === "Doctor";
+                              const isPat = turn.speaker === "Patient";
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`dialogue-turn-card ${
+                                    isDoc ? "doctor-card" : isPat ? "patient-card" : "caregiver-card"
+                                  }`}
+                                >
+                                  <div className="dialogue-card-header">
+                                    <div className="dialogue-speaker-identity">
+                                      <div
+                                        className={`dialogue-avatar-circle ${
+                                          isDoc ? "avatar-doctor" : isPat ? "avatar-patient" : "avatar-caregiver"
+                                        }`}
+                                      >
+                                        {isDoc ? <FaUserMd /> : <FaUser />}
+                                      </div>
+                                      <div>
+                                        <span
+                                          className={`dialogue-speaker-name ${
+                                            isDoc
+                                              ? "speaker-name-doctor"
+                                              : isPat
+                                              ? "speaker-name-patient"
+                                              : "speaker-name-caregiver"
+                                          }`}
+                                        >
+                                          {isDoc ? "Doctor Says:" : isPat ? "Patient Says:" : "Caregiver Says:"}
+                                        </span>
+                                        <span className="dialogue-turn-badge">
+                                          {isDoc ? "(Attending Doctor)" : `(${patient?.name || "Patient"})`}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="dialogue-turn-actions">
+                                      <button
+                                        type="button"
+                                        className="turn-action-btn"
+                                        onClick={() => handleToggleSpeaker(idx)}
+                                        title="Switch speaker between Doctor and Patient"
+                                      >
+                                        <FaExchangeAlt size={10} /> Switch to {isDoc ? "Patient" : "Doctor"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="turn-action-btn"
+                                        onClick={() => handleAddTurn(isDoc ? "Patient" : "Doctor", idx)}
+                                        title={`Insert ${isDoc ? "Patient" : "Doctor"} reply directly after this`}
+                                      >
+                                        <FaPlus size={10} /> {isDoc ? "Patient Reply" : "Doctor Reply"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="turn-action-btn delete-btn"
+                                        onClick={() => handleDeleteTurn(idx)}
+                                        title="Delete this turn"
+                                      >
+                                        <FaTrash size={10} />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <textarea
+                                    className="dialogue-turn-textarea"
+                                    value={turn.text}
+                                    onChange={(e) => handleUpdateTurnText(idx, e.target.value)}
+                                    placeholder={isDoc ? "Enter what the doctor said..." : "Enter what the patient said..."}
+                                    rows={Math.max(2, Math.ceil((turn.text?.length || 0) / 75))}
+                                  />
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+
+                      {/* VIEW 2: RAW TEXT EDITOR */}
+                      {transcriptView === "raw" && (
+                        <textarea
+                          className="transcript-box"
+                          value={transcript}
+                          onChange={(e) => handleRawTextChange(e.target.value)}
+                          placeholder="Doctor: &quot;What symptoms are you having today?&quot;&#10;Patient: &quot;I have had a high fever and sore throat for 3 days.&quot;&#10;Doctor: &quot;Let me examine your throat.&quot;"
+                          rows={12}
+                        />
+                      )}
+
                       <div className="consult-actions" style={{ marginTop: "16px" }}>
                         <button
                           id="generate-soap-btn"
                           className="consult-btn btn-primary"
                           onClick={generateSOAPNote}
-                          disabled={loading || !transcript.trim()}
+                          disabled={loading || (!transcript.trim() && dialogueTurns.length === 0)}
                         >
                           <HiOutlineSparkles style={{ marginRight: 6 }} /> Generate Clinical SOAP Note
                         </button>
@@ -970,7 +1411,7 @@ export default function ConsultationNote({ patient }) {
                         <div key={note.id} className="past-note-card">
                           <div className="past-note-meta">
                             <span className="past-note-date">
-                              📅{" "}
+                              {" "}
                               {new Date(note.createdAt).toLocaleString("en-IN", {
                                 day: "numeric",
                                 month: "short",

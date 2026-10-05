@@ -3,6 +3,7 @@ import multer from "multer";
 import { checkRole } from "../middleware/roleMiddleware.js";
 import {
   transcribeAudio,
+  formatDialogue,
   generateSOAPNote,
   saveConsultationDraft,
   approveConsultationNote,
@@ -16,6 +17,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Transcribe audio → transcript (doctor only)
 router.post("/transcribe", checkRole(["doctor", "admin"]), upload.single("audio"), transcribeAudio);
+
+// Format dialogue into Doctor/Patient turns with AI (doctor only)
+router.post("/format-dialogue", checkRole(["doctor", "admin"]), formatDialogue);
 
 // Transcript → SOAP note (doctor only)
 router.post("/generate-soap", checkRole(["doctor", "admin"]), generateSOAPNote);

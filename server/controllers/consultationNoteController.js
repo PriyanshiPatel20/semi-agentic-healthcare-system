@@ -47,6 +47,7 @@ const UNIQUE_AUDIO_MODELS = [...new Set(CANDIDATE_AUDIO_MODELS)];
 const UNIQUE_CHAT_MODELS = [...new Set(CANDIDATE_CHAT_MODELS)];
 
 const GEMINI_NATIVE_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_OPENAI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
 
 /**
  * Direct Gemini audio transcriber with model fallback and backoff retry
@@ -82,7 +83,11 @@ async function callGeminiAudioTranscription(audioBase64, mimeType) {
                     },
                   },
                   {
-                    text: "Transcribe this audio recording exactly as spoken. Return ONLY the spoken words with no additional commentary, labels, or formatting. If the audio is silent or unclear or contains no intelligible words, return EXACTLY: [UNCLEAR_AUDIO]",
+                    text: `Transcribe this doctor-patient medical consultation audio recording accurately word-for-word.
+Preserve all spoken words, medical terms, medication names, dosages, and numbers exactly as spoken.
+Do not add speaker tags, speaker names, or prefixes (do NOT output "Doctor:" or "Patient:").
+If the audio is silent or unclear or contains no intelligible words, return EXACTLY: [UNCLEAR_AUDIO]
+Return ONLY the raw spoken words.`,
                   },
                 ],
               },
@@ -132,7 +137,8 @@ async function callGeminiAudioTranscription(audioBase64, mimeType) {
 }
 
 /**
- * Direct Gemini Chat / Prompt execution with fallback and backoff retry
+ * Direct Gemini Chat / Prompt execution with fallback and backoff retry.
+ * Uses OpenAI-compatible endpoint (identical to doctorAIController & reminderCron).
  */
 async function callGeminiChat({ messages, timeout = 30000, tag = "Gemini Chat", responseMimeType = null }) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -140,73 +146,214 @@ async function callGeminiChat({ messages, timeout = 30000, tag = "Gemini Chat", 
     throw new Error("GEMINI_API_KEY is not defined in environment variables!");
   }
 
+  let lastError = null;
+
+  // Method 1: OpenAI-compatible chat completions (working throughout the codebase)
+  for (let i = 0; i < UNIQUE_CHAT_MODELS.length; i++) {
+    const model = UNIQUE_CHAT_MODELS[i];
+    const startTime = Date.now();
+    console.log(`🤖 [${tag}] Querying OpenAI-compat model "${model}"...`);
+
+    try {
+      const response = await axios.post(
+        `${GEMINI_OPENAI_BASE}/chat/completions`,
+        {
+          model,
+          messages,
+          temperature: 0.1,
+          ...(responseMimeType === "application/json"
+            ? { response_format: { type: "json_object" } }
+            : {}),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout,
+        }
+      );
+
+      const elapsed = Date.now() - startTime;
+      const content = (response.data?.choices?.[0]?.message?.content || "").trim();
+
+      if (content) {
+        console.log(`✅ [${tag}] Model "${model}" responded in ${elapsed}ms | Length: ${content.length}`);
+        return { content, model, elapsed };
+      }
+    } catch (err) {
+      const elapsed = Date.now() - startTime;
+      lastError = err;
+      const status = err.response?.status || "NO_STATUS";
+      const apiMsg = err.response?.data?.error?.message || err.message;
+      console.warn(`⚠️ [${tag}] OpenAI-compat "${model}" failed after ${elapsed}ms (${status}): ${apiMsg}`);
+    }
+  }
+
+  // Method 2: Native Gemini v1beta fallback
   const promptText = messages
     .map((m) => `${m.role.toUpperCase()}:\n${m.content}`)
     .join("\n\n");
 
-  let lastError = null;
-  const maxPasses = 2;
+  for (let i = 0; i < UNIQUE_CHAT_MODELS.length; i++) {
+    const model = UNIQUE_CHAT_MODELS[i];
+    const startTime = Date.now();
+    console.log(`💬 [${tag}] Fallback: Trying native model "${model}"...`);
 
-  for (let pass = 0; pass < maxPasses; pass++) {
-    for (let i = 0; i < UNIQUE_CHAT_MODELS.length; i++) {
-      const model = UNIQUE_CHAT_MODELS[i];
-      const startTime = Date.now();
-      console.log(
-        `💬 [${tag}] (Pass ${pass + 1}/${maxPasses}) Trying model "${model}"...`
+    try {
+      const response = await axios.post(
+        `${GEMINI_NATIVE_BASE}/${model}:generateContent?key=${apiKey}`,
+        {
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: { temperature: 0.2 },
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout,
+        }
       );
 
-      try {
-        const generationConfig = {
-          temperature: 0.2,
-        };
-        if (responseMimeType) {
-          generationConfig.responseMimeType = responseMimeType;
-        }
+      const elapsed = Date.now() - startTime;
+      const content = (response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
 
-        const response = await axios.post(
-          `${GEMINI_NATIVE_BASE}/${model}:generateContent?key=${apiKey}`,
-          {
-            contents: [{ parts: [{ text: promptText }] }],
-            generationConfig,
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-            timeout,
-          }
-        );
-
-        const elapsed = Date.now() - startTime;
-        const content = (
-          response.data?.candidates?.[0]?.content?.parts?.[0]?.text || ""
-        ).trim();
-
-        console.log(
-          `✅ [${tag}] Model "${model}" succeeded in ${elapsed}ms | Content length: ${content.length}`
-        );
-
+      if (content) {
+        console.log(`✅ [${tag}] Native model "${model}" succeeded in ${elapsed}ms`);
         return { content, model, elapsed };
-      } catch (err) {
-        const elapsed = Date.now() - startTime;
-        lastError = err;
-        const status = err.response?.status || "NO_STATUS";
-        const apiMsg = err.response?.data?.error?.message || err.message;
-
-        console.warn(
-          `⚠️ [${tag}] Model "${model}" failed after ${elapsed}ms (Status ${status}): ${apiMsg}`
-        );
-
-        if (status === 503 || status === 429) {
-          console.log(`⏳ [${tag}] Brief pause (1.5s) to recover from server demand spike...`);
-          await new Promise((r) => setTimeout(r, 1500));
-        }
       }
+    } catch (err) {
+      lastError = err;
     }
   }
 
   console.error(`❌ [${tag}] All candidate chat models exhausted.`);
   throw lastError;
+}
+
+/**
+ * Safely and dynamically parses AI dialogue turns from JSON array, JSON object,
+ * markdown bold lines (**Doctor:**, **Patient:**), or plain lines (Doctor:, Patient:).
+ * Absolutely no static keyword heuristics.
+ */
+function parseDialogueResponse(rawContent) {
+  if (!rawContent || typeof rawContent !== "string") return [];
+
+  const clean = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+  // 1. Try parsing JSON array directly: [ { "speaker": "Doctor", "text": "..." }, ... ]
+  try {
+    const arrayStart = clean.indexOf("[");
+    const arrayEnd = clean.lastIndexOf("]");
+    if (arrayStart !== -1 && arrayEnd > arrayStart) {
+      const parsedArray = JSON.parse(clean.substring(arrayStart, arrayEnd + 1));
+      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+        const turns = parsedArray
+          .map((item) => ({
+            speaker: (item.speaker || "").toLowerCase().includes("pat")
+              ? "Patient"
+              : (item.speaker || "").toLowerCase().includes("care")
+              ? "Caregiver"
+              : "Doctor",
+            text: (item.text || "").replace(/^["']|["']$/g, "").trim(),
+          }))
+          .filter((t) => t.text.length > 0);
+        if (turns.length > 0) return turns;
+      }
+    }
+
+    // 2. Try parsing JSON object: { "dialogue": [ ... ] } or { "turns": [ ... ] }
+    const objStart = clean.indexOf("{");
+    const objEnd = clean.lastIndexOf("}");
+    if (objStart !== -1 && objEnd > objStart) {
+      const parsedObj = JSON.parse(clean.substring(objStart, objEnd + 1));
+      const arr = parsedObj.dialogue || parsedObj.conversation || parsedObj.turns;
+      if (Array.isArray(arr) && arr.length > 0) {
+        const turns = arr
+          .map((item) => ({
+            speaker: (item.speaker || "").toLowerCase().includes("pat")
+              ? "Patient"
+              : (item.speaker || "").toLowerCase().includes("care")
+              ? "Caregiver"
+              : "Doctor",
+            text: (item.text || "").replace(/^["']|["']$/g, "").trim(),
+          }))
+          .filter((t) => t.text.length > 0);
+        if (turns.length > 0) return turns;
+      }
+    }
+  } catch (e) {
+    // Continue to line and delimiter parser
+  }
+
+  // 3. Line-by-line speaker tag parser (handles **Doctor:**, **Doctor**: , Doctor:, [Doctor]:, etc.)
+  const lines = clean.split(/\r?\n/);
+  const turns = [];
+  let currentSpeaker = null;
+  let currentText = "";
+
+  // Speaker line regex matching Doctor / Patient / Caregiver at the beginning of a line
+  const speakerLineRegex = /^\s*(?:\*{1,2}|#{1,4}|\[)?\s*(Doctor|Dr\.?|Patient|Pt\.?|Caregiver|Nurse)\s*(?:\*{1,2}|\])?\s*[:\-–—]?\s*(?:\*{1,2})?\s*[:\-–—]?\s*(.*)$/i;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const match = trimmed.match(speakerLineRegex);
+    if (match) {
+      const rawSp = match[1].toLowerCase();
+      const nextSpeaker = rawSp.startsWith("dr") || rawSp.startsWith("doc")
+        ? "Doctor"
+        : rawSp.startsWith("pt") || rawSp.startsWith("pat")
+        ? "Patient"
+        : "Caregiver";
+      const lineContent = (match[2] || "").replace(/^["']|["']$/g, "").trim();
+
+      if (currentSpeaker && currentText.trim()) {
+        turns.push({ speaker: currentSpeaker, text: currentText.trim() });
+      }
+      currentSpeaker = nextSpeaker;
+      currentText = lineContent;
+    } else {
+      if (currentSpeaker) {
+        currentText = currentText ? `${currentText} ${trimmed}` : trimmed;
+      } else {
+        currentText = currentText ? `${currentText} ${trimmed}` : trimmed;
+      }
+    }
+  }
+
+  if (currentSpeaker && currentText.trim()) {
+    turns.push({ speaker: currentSpeaker, text: currentText.trim() });
+  }
+
+  // 4. If line-by-line found at least 2 turns, return them
+  if (turns.length > 1) {
+    return turns;
+  }
+
+  // 5. Segment parser for inline markers (e.g. if the entire conversation was returned on a single paragraph)
+  const inlineMarkerRegex = /(?:\*{1,2}|#{1,4}|\[)?\s*(Doctor|Dr\.?|Patient|Pt\.?|Caregiver|Nurse)\s*(?:\*{1,2}|\])?\s*[:\-–—]\s*(?:\*{1,2})?/gi;
+  const inlineMatches = [...clean.matchAll(inlineMarkerRegex)];
+  if (inlineMatches.length > 1) {
+    const segmentTurns = [];
+    for (let i = 0; i < inlineMatches.length; i++) {
+      const m = inlineMatches[i];
+      const speakerRaw = m[1].toLowerCase();
+      const speaker = speakerRaw.startsWith("dr") || speakerRaw.startsWith("doc")
+        ? "Doctor"
+        : speakerRaw.startsWith("pt") || speakerRaw.startsWith("pat")
+        ? "Patient"
+        : "Caregiver";
+      const startIndex = m.index + m[0].length;
+      const endIndex = i < inlineMatches.length - 1 ? inlineMatches[i + 1].index : clean.length;
+      const segmentText = clean.substring(startIndex, endIndex).replace(/^["']|["']$/g, "").trim();
+      if (segmentText) {
+        segmentTurns.push({ speaker, text: segmentText });
+      }
+    }
+    if (segmentTurns.length > 1) return segmentTurns;
+  }
+
+  return turns;
 }
 
 // ==========================================
@@ -270,14 +417,179 @@ export const transcribeAudio = async (req, res) => {
       });
     }
 
+    // ── STEP 1.2: DYNAMIC AI SPEAKER IDENTIFICATION (Doctor vs Patient) ──
+    let dialogue = [];
+    let formattedTranscript = transcript;
+
+    try {
+      console.log(`🤖 [Transcribe] Running Dynamic Gemini AI Speaker Identification (${transcript.length} chars)...`);
+      
+      // Strip any pre-existing speaker labels so Gemini evaluates purely from clinical logic without bias
+      const strippedInput = transcript
+        .replace(/(?:^|\n|\r)\s*(?:\*{1,2}|#{1,4}|\[)?\s*(Doctor|Dr\.?|Patient|Pt\.?|Caregiver|Nurse|Speaker\s*\d+)\s*(?:\*{1,2}|\])?\s*[:\-–—]?\s*(?:\*{1,2})?\s*[:\-–—]?\s*/gi, "\n")
+        .replace(/\n{2,}/g, "\n")
+        .trim();
+
+      const diarizePrompt = [
+        {
+          role: "system",
+          content: `You are an expert AI clinical medical scribe.
+Your task is to analyze this raw medical consultation dialogue between a Doctor and a Patient and separate it into chronological alternating speaker dialogue turns.
+
+CLINICAL ROLE IDENTIFICATION PRINCIPLES:
+1. DOCTOR:
+   - Inquiries & Medical Questions: e.g. "How are you managing your medicines?", "What brings you in today?", "How long have you had this cough?"
+   - Clinical Directives & Examination: e.g. "Let me check your blood pressure", "Breathe in deeply."
+   - Treatment Advice & Prescriptions: e.g. "Keep a written medicine schedule and take each prescribed medicine at its instructed time.", "Take this tablet twice daily after meals."
+
+2. PATIENT:
+   - Answers to doctor's questions: e.g. "I take several medicines and sometimes forget which one comes first."
+   - Symptoms & Complaints: e.g. "My knees have been painful while walking."
+   - Personal Health & Medication History: e.g. "I am also taking Amlodipine and Metformin prescribed by my doctors."
+   - Patient Questions & Thanks: e.g. "Will this medicine cause drowsiness?", "Thank you, doctor."
+
+CRITICAL RULES:
+1. Split alternating turns cleanly. For example:
+   Doctor: "How are you managing your medicines?"
+   Patient: "I take several medicines and sometimes forget which one comes first."
+   Doctor: "For this sample conversation, keep a written medicine schedule and take each prescribed medicine at its instructed time."
+   Patient: "I am also taking Amlodipine and Metformin prescribed by my doctors."
+2. NEVER combine doctor directives and patient answers into a single card.
+3. Preserve 100% of all spoken words, drug names (e.g. Amlodipine, Metformin), and instructions.
+4. Output format:
+Return a JSON array of objects:
+[
+  { "speaker": "Doctor", "text": "..." },
+  { "speaker": "Patient", "text": "..." }
+]
+If JSON is not possible, return plain lines starting with Doctor: and Patient:.`,
+        },
+        {
+          role: "user",
+          content: `Consultation dialogue to separate:\n"${strippedInput || transcript}"`,
+        },
+      ];
+
+      const { content: diarizeText } = await callGeminiChat({
+        messages: diarizePrompt,
+        tag: "Dynamic Speaker Diarization",
+      });
+
+      console.log(`📝 [Transcribe Diarization Raw Output]:\n${diarizeText}`);
+      dialogue = parseDialogueResponse(diarizeText);
+
+      if (dialogue.length > 0) {
+        formattedTranscript = dialogue
+          .map((d) => `${d.speaker}: "${d.text}"`)
+          .join("\n\n");
+        console.log(`✅ [Transcribe] Dynamic AI identified ${dialogue.length} Doctor & Patient turns!`);
+      } else {
+        formattedTranscript = transcript;
+      }
+    } catch (diarizeErr) {
+      console.warn("⚠️ [Transcribe] AI Diarization error:", diarizeErr.message);
+      formattedTranscript = transcript;
+    }
+
     const totalElapsed = Date.now() - reqStart;
     console.log(`🎉 [Transcribe] Completed successfully in ${totalElapsed}ms`);
-    return res.json({ transcript, modelUsed: model });
+    return res.json({
+      transcript: formattedTranscript,
+      dialogue,
+      rawTranscript: transcript,
+      modelUsed: model,
+    });
   } catch (err) {
     const errorMsg = err.response?.data?.error?.message || err.response?.data || err.message;
     console.error("❌ [Transcribe] Transcription failed:", errorMsg);
     return res.status(500).json({
       error: "Audio transcription failed. Please check your network and Gemini API key.",
+      detail: errorMsg,
+    });
+  }
+};
+
+// ==========================================
+// STEP 1.5: FORMAT / SEPARATE SPEAKERS WITH AI
+// (For manually typed or pasted transcripts)
+// ==========================================
+export const  formatDialogue = async (req, res) => {
+  const reqStart = Date.now();
+  console.log("\n==================== [AI NOTE WRITER: FORMAT DIALOGUE] ====================");
+
+  try {
+    const { transcript, patient } = req.body;
+
+    if (!transcript || !transcript.trim()) {
+      return res.status(400).json({ error: "Transcript is required" });
+    }
+
+    // Strip any pre-existing speaker labels so Gemini evaluates purely from clinical logic without bias
+    const strippedInput = transcript
+      .replace(/(?:^|\n|\r)\s*(?:\*{1,2}|#{1,4}|\[)?\s*(Doctor|Dr\.?|Patient|Pt\.?|Caregiver|Nurse|Speaker\s*\d+)\s*(?:\*{1,2}|\])?\s*[:\-–—]?\s*(?:\*{1,2})?\s*[:\-–—]?\s*/gi, "\n")
+      .replace(/\n{2,}/g, "\n")
+      .trim();
+
+    const messages = [
+      {
+        role: "system",
+        content: `You are an expert AI clinical medical scribe.
+Your task is to analyze this medical consultation dialogue between a Doctor and a Patient${patient?.name ? ` (Patient: ${patient.name})` : ""} and separate it into chronological alternating speaker dialogue turns.
+
+CLINICAL ROLE IDENTIFICATION PRINCIPLES:
+1. DOCTOR:
+   - Inquiries & Medical Questions: e.g. "How are you managing your medicines?", "What brings you in today?", "How long have you had this cough?"
+   - Clinical Directives & Examination: e.g. "Let me check your blood pressure", "Breathe in deeply."
+   - Treatment Advice & Prescriptions: e.g. "Keep a written medicine schedule and take each prescribed medicine at its instructed time.", "Take this tablet twice daily after meals."
+
+2. PATIENT:
+   - Answers to doctor's questions: e.g. "I take several medicines and sometimes forget which one comes first."
+   - Symptoms & Complaints: e.g. "My knees have been painful while walking."
+   - Personal Health & Medication History: e.g. "I am also taking Amlodipine and Metformin prescribed by my doctors."
+   - Patient Questions & Thanks: e.g. "Will this medicine cause drowsiness?", "Thank you, doctor."
+
+CRITICAL RULES:
+1. Split alternating turns cleanly. For example:
+   Doctor: "How are you managing your medicines?"
+   Patient: "I take several medicines and sometimes forget which one comes first."
+   Doctor: "For this sample conversation, keep a written medicine schedule and take each prescribed medicine at its instructed time."
+   Patient: "I am also taking Amlodipine and Metformin prescribed by my doctors."
+2. NEVER combine doctor directives and patient answers into a single card.
+3. Preserve 100% of all spoken words, drug names (e.g. Amlodipine, Metformin), and instructions.
+4. Output format:
+Return a JSON array of objects:
+[
+  { "speaker": "Doctor", "text": "..." },
+  { "speaker": "Patient", "text": "..." }
+]
+If JSON is not possible, return plain lines starting with Doctor: and Patient:.`,
+      },
+      {
+        role: "user",
+        content: `Consultation dialogue to separate:\n"${strippedInput || transcript}"`,
+      },
+    ];
+
+    const { content: diarizeText, model } = await callGeminiChat({
+      messages,
+      tag: "Dynamic Speaker Formatting",
+    });
+
+    console.log(`📝 [Format Dialogue Raw Output]:\n${diarizeText}`);
+    const dialogue = parseDialogueResponse(diarizeText);
+
+    const formattedTranscript = dialogue.length > 0
+      ? dialogue.map((d) => `${d.speaker}: "${d.text}"`).join("\n\n")
+      : transcript;
+
+    const totalElapsed = Date.now() - reqStart;
+    console.log(`🎉 [Format Dialogue] Formatted ${dialogue.length} turns in ${totalElapsed}ms with model "${model}"`);
+    return res.json({ dialogue, formattedTranscript, modelUsed: model });
+  } catch (err) {
+    const errorMsg = err.response?.data?.error?.message || err.response?.data || err.message;
+    console.error("❌ [Format Dialogue] Formatting failed:", errorMsg);
+    return res.status(500).json({
+      error: "Failed to format dialogue speakers",
       detail: errorMsg,
     });
   }
