@@ -110,7 +110,6 @@ export default function Login() {
 
         <div className="auth-security-note">
           <BsShieldLock />
-          <span>HIPAA Compliant • 256-Bit Encrypted Healthcare Gateway</span>
         </div>
       </div>
     </div>

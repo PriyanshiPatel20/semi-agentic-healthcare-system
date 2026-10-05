@@ -117,6 +117,16 @@ export const processReminders = async () => {
                                 to: patientEmail,
                                 subject: "Appointment Reminder - HealthRay HMS",
                                 text: patientMessage,
+                                recipientName: patientName,
+                                role: "patient",
+                                details: {
+                                    "Patient Name": patientName,
+                                    "Doctor": `Dr. ${doctorName.replace(/^Dr\.\s*/i, "")}`,
+                                    "Specialty / Dept": specialty,
+                                    "Appointment Date": appointmentDateStr,
+                                    "Appointment Time": time,
+                                    "Status": "Confirmed",
+                                },
                             });
 
                             if (isSent) {
@@ -210,6 +220,16 @@ export const processReminders = async () => {
                                 to: doctorEmail,
                                 subject: "Patient Appointment Reminder - HealthRay HMS",
                                 text: doctorMessage,
+                                recipientName: `Dr. ${doctorName.replace(/^Dr\.\s*/i, "")}`,
+                                role: "doctor",
+                                details: {
+                                    "Doctor Name": `Dr. ${doctorName.replace(/^Dr\.\s*/i, "")}`,
+                                    "Patient Name": patientName,
+                                    "Specialty": appointment.doctor?.specialty || "General Healthcare",
+                                    "Appointment Date": appointmentDateStr,
+                                    "Appointment Time": time,
+                                    "Status": "Scheduled",
+                                },
                             });
 
                             if (isSent) {
