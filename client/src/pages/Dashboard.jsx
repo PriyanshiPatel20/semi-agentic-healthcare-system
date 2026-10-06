@@ -8,7 +8,8 @@ import {
   BsArrowRight,
   BsActivity,
   BsCheckCircleFill,
-  BsClockHistory
+  BsClockHistory,
+  BsArrowRepeat
 } from "react-icons/bs";
 import { Link } from "react-router-dom";
 import API from "../api";
@@ -48,6 +49,8 @@ export default function Dashboard() {
 
   // Dynamic Department Distribution Data
   const [distributionData, setDistributionData] = useState([]);
+  const [hoveredDepartment, setHoveredDepartment] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [patientProfile, setPatientProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -85,9 +88,14 @@ export default function Dashboard() {
 
       // 2. Fetch Doctors
       try {
-        const dRes = await API.get("/doctors");
-        if (Array.isArray(dRes.data)) {
-          doctorList = dRes.data;
+        const dRes = await API.get("/doctors", { headers });
+        const resData = dRes.data;
+        if (Array.isArray(resData)) {
+          doctorList = resData;
+        } else if (Array.isArray(resData?.data)) {
+          doctorList = resData.data;
+        } else if (Array.isArray(resData?.doctors)) {
+          doctorList = resData.doctors;
         }
       } catch (err) {
         console.warn("Could not fetch doctors for dashboard:", err);
@@ -158,43 +166,82 @@ export default function Dashboard() {
       });
 
       // ── Calculate 100% Dynamic Department Breakdown ──
-      const specialtyCounts = {};
-      doctorList.forEach((doc) => {
-        const spec = doc.specialty?.trim() || "General Practice";
-        specialtyCounts[spec] = (specialtyCounts[spec] || 0) + 1;
-      });
+      const formatSpecialty = (raw) => {
+        if (!raw || typeof raw !== "string" || !raw.trim()) return "General Practice";
+        return raw
+          .trim()
+          .toLowerCase()
+          .split(/\s+/)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+      };
 
-      // If doctors list was empty, extract from appointments
-      if (Object.keys(specialtyCounts).length === 0 && appointmentList.length > 0) {
-        appointmentList.forEach((a) => {
-          const spec = a.doctor?.specialty?.trim() || "General Medicine";
+      const specialtyCounts = {};
+      let totalCountedDoctors = 0;
+
+      if (doctorList.length > 0) {
+        doctorList.forEach((doc) => {
+          const spec = formatSpecialty(doc.specialty);
           specialtyCounts[spec] = (specialtyCounts[spec] || 0) + 1;
+          totalCountedDoctors++;
+        });
+      } else if (appointmentList.length > 0) {
+        // Fallback to booked appointment doctors if doctors table has not populated yet
+        appointmentList.forEach((a) => {
+          if (a.doctor?.specialty) {
+            const spec = formatSpecialty(a.doctor.specialty);
+            specialtyCounts[spec] = (specialtyCounts[spec] || 0) + 1;
+            totalCountedDoctors++;
+          }
         });
       }
 
-      const colors = ["#0284c7", "#0d9488", "#7c3aed", "#d97706", "#ec4899"];
-      const totalSpecs = Object.values(specialtyCounts).reduce((sum, val) => sum + val, 0) || 1;
+      const palette = [
+        "#0284c7", // Sky blue
+        "#0d9488", // Teal
+        "#7c3aed", // Violet
+        "#d97706", // Amber
+        "#ec4899", // Pink
+        "#2563eb", // Royal blue
+        "#059669", // Emerald
+        "#e11d48", // Rose
+        "#8b5cf6", // Indigo
+        "#0891b2", // Cyan
+      ];
 
-      const computedDistribution = Object.entries(specialtyCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 4)
-        .map(([name, count], index) => {
-          const percent = Math.max(1, Math.round((count / totalSpecs) * 100));
+      const sortedEntries = Object.entries(specialtyCounts).sort((a, b) => b[1] - a[1]);
+
+      if (totalCountedDoctors > 0 && sortedEntries.length > 0) {
+        // If more than 5 distinct specialties exist, preserve top 4 and cleanly aggregate the rest into 'Others'
+        let displayEntries = sortedEntries;
+        if (sortedEntries.length > 5) {
+          const top4 = sortedEntries.slice(0, 4);
+          const othersCount = sortedEntries.slice(4).reduce((acc, [, c]) => acc + c, 0);
+          displayEntries = [...top4, ["Others", othersCount]];
+        }
+
+        let allocatedPercent = 0;
+        const computed = displayEntries.map(([name, count], idx) => {
+          const isLast = idx === displayEntries.length - 1;
+          const exactPercent = (count / totalCountedDoctors) * 100;
+          const percent = isLast 
+            ? Math.max(1, 100 - allocatedPercent) 
+            : Math.max(1, Math.round(exactPercent));
+          allocatedPercent += percent;
+
           return {
             name,
             count,
             percent,
-            color: colors[index % colors.length],
+            color: palette[idx % palette.length],
           };
         });
 
-      setDistributionData(
-        computedDistribution.length > 0
-          ? computedDistribution
-          : [
-              { name: "General Medicine", count: 1, percent: 100, color: "#0284c7" }
-            ]
-      );
+        setDistributionData(computed);
+      } else {
+        // Dynamic: If database has 0 doctors, do not hardcode fake doctors
+        setDistributionData([]);
+      }
     } catch (err) {
       console.error("Dashboard metric initialization error:", err);
     } finally {
@@ -607,55 +654,137 @@ export default function Dashboard() {
               <p>
                 {role === "patient" 
                   ? "Synchronized with your personal profile" 
-                  : "Calculated from licensed doctors in database"}
+                  : `Calculated dynamically from ${metrics.doctors} doctor${metrics.doctors !== 1 ? "s" : ""} in database`}
               </p>
             </div>
+            {role !== "patient" && (
+              <button
+                type="button"
+                className="chart-sync-btn"
+                title="Live re-fetch from database"
+                onClick={async () => {
+                  setIsRefreshing(true);
+                  await fetchDashboardMetrics();
+                  setTimeout(() => setIsRefreshing(false), 400);
+                }}
+                disabled={isRefreshing}
+              >
+                <BsArrowRepeat className={isRefreshing ? "spin-animation" : ""} />
+                <span>{isRefreshing ? "Syncing..." : "Live Sync"}</span>
+              </button>
+            )}
           </div>
 
           {role !== "patient" ? (
-            <div className="distribution-chart-wrapper">
-              <div className="donut-visual-box">
-                <svg viewBox="0 0 36 36" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
-                  {donutSegments.map((seg, idx) => (
+            distributionData.length > 0 ? (
+              <div className="distribution-chart-wrapper">
+                <div className="donut-visual-box">
+                  <svg viewBox="0 0 36 36" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
+                    {/* Background circular guide ring */}
                     <circle
-                      key={idx}
                       cx="18"
                       cy="18"
                       r="15.915"
                       fill="transparent"
-                      stroke={seg.color}
+                      stroke="#f1f5f9"
                       strokeWidth="3.5"
-                      strokeDasharray={seg.dashArray}
-                      strokeDashoffset={seg.dashOffset}
                     />
-                  ))}
-                </svg>
-                <div className="donut-center-metric">
-                  <div className="donut-center-number">{metrics.doctors}</div>
-                  <div className="donut-center-label">Doctors</div>
-                </div>
-              </div>
-
-              <div className="distribution-list">
-                {distributionData.map((item, idx) => (
-                  <div key={idx} className="dist-row">
-                    <div className="dist-info">
-                      <span className="dist-name">
-                        <span className="dist-dot" style={{ background: item.color }}></span>
-                        {item.name} ({item.count})
-                      </span>
-                      <span className="dist-percent">{item.percent}%</span>
+                    {donutSegments.map((seg, idx) => (
+                      <circle
+                        key={idx}
+                        cx="18"
+                        cy="18"
+                        r="15.915"
+                        fill="transparent"
+                        stroke={seg.color}
+                        strokeWidth={hoveredDepartment?.name === seg.name ? "4.5" : "3.5"}
+                        strokeDasharray={seg.dashArray}
+                        strokeDashoffset={seg.dashOffset}
+                        style={{
+                          cursor: "pointer",
+                          transition: "stroke-width 0.2s ease, opacity 0.2s ease",
+                          opacity: hoveredDepartment && hoveredDepartment.name !== seg.name ? 0.45 : 1,
+                        }}
+                        onMouseEnter={() => setHoveredDepartment(seg)}
+                        onMouseLeave={() => setHoveredDepartment(null)}
+                      />
+                    ))}
+                  </svg>
+                  <div className="donut-center-metric">
+                    <div className="donut-center-number">
+                      {hoveredDepartment ? hoveredDepartment.count : metrics.doctors}
                     </div>
-                    <div className="dist-progress-track">
-                      <div
-                        className="dist-progress-bar"
-                        style={{ width: `${item.percent}%`, background: item.color }}
-                      ></div>
+                    <div className="donut-center-label">
+                      {hoveredDepartment ? `${hoveredDepartment.percent}% ${hoveredDepartment.name}` : "Total Doctors"}
                     </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="distribution-list">
+                  {distributionData.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`dist-row ${hoveredDepartment?.name === item.name ? "dist-row-active" : ""}`}
+                      onMouseEnter={() => setHoveredDepartment(item)}
+                      onMouseLeave={() => setHoveredDepartment(null)}
+                      style={{
+                        cursor: "pointer",
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                        transition: "background 0.2s ease",
+                        background: hoveredDepartment?.name === item.name ? "rgba(13, 148, 136, 0.08)" : "transparent",
+                      }}
+                    >
+                      <div className="dist-info">
+                        <span className="dist-name">
+                          <span className="dist-dot" style={{ background: item.color }}></span>
+                          {item.name} ({item.count})
+                        </span>
+                        <span className="dist-percent" style={{ color: item.color, fontWeight: 700 }}>
+                          {item.percent}%
+                        </span>
+                      </div>
+                      <div className="dist-progress-track">
+                        <div
+                          className="dist-progress-bar"
+                          style={{ width: `${item.percent}%`, background: item.color }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="dist-empty-container">
+                <div className="donut-visual-box">
+                  <svg viewBox="0 0 36 36" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="15.915"
+                      fill="transparent"
+                      stroke="#e2e8f0"
+                      strokeWidth="3.5"
+                    />
+                  </svg>
+                  <div className="donut-center-metric">
+                    <div className="donut-center-number">0</div>
+                    <div className="donut-center-label">Doctors</div>
+                  </div>
+                </div>
+                <div className="dist-empty-content">
+                  <p className="dist-empty-title">No licensed doctors recorded in database yet</p>
+                  <p className="dist-empty-subtitle">
+                    Registered doctors with clinical specialties will dynamically appear here in real-time.
+                  </p>
+                  {role === "admin" && (
+                    <Link to="/doctors" className="dist-action-link">
+                      + Register Doctors Now
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )
           ) : (
             <div className="vitals-cards-grid">
               <div className="vital-box">
