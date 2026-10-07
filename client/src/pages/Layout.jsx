@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import "../styles/layout.css";
 import "../styles/patientWebsite.css";
+import "../styles/doctorWebsite.css";
 import { BsHospital, BsCalendar2Check, BsPeople, BsActivity, BsShieldLock, BsFileEarmarkMedical, BsCheckCircleFill } from "react-icons/bs";
 import { FaUserMd, FaUserInjured, FaSignOutAlt, FaBell, FaPhoneAlt, FaMapMarkerAlt, FaLock, FaShieldAlt, FaStethoscope } from "react-icons/fa";
 import API from "../api";
@@ -292,7 +293,151 @@ export default function Layout() {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. DOCTOR & ADMIN VIEW: DASHBOARD WORKSPACE (UNCHANGED)
+  // 2. DOCTOR VIEW: PRACTO PRO & NEXOPD HEALTHCARE WEBSITE
+  // ─────────────────────────────────────────────────────────────
+  if (user?.role === "doctor") {
+    return (
+      <div className="doctor-website-root">
+        {/* Practo Pro & NexOPD-inspired Glassmorphic Header & Navbar */}
+        <header className="doctor-navbar">
+          <div className="doctor-navbar-container">
+            {/* Brand Logo */}
+            <div className="doctor-brand" onClick={() => navigate("/dashboard")} title="HealthRay Practice Home">
+              <div className="doctor-brand-icon-box">
+                <BsHospital />
+                <span className="brand-glow-ring"></span>
+              </div>
+              <div className="doctor-brand-text">
+                <div className="doctor-brand-title">
+                  <span className="brand-main-practo">HealthRay</span>
+                  <span className="brand-badge-doc">DOCTOR PRO</span>
+                </div>
+                <span className="brand-sub-practo">Clinical OPD &amp; Practice Management</span>
+              </div>
+            </div>
+
+            {/* Doctor Navigation Menu */}
+            <nav className="doctor-nav-menu">
+              <NavLink 
+                to="/dashboard" 
+                className={({ isActive }) => isActive ? "doctor-nav-link active" : "doctor-nav-link"}
+              >
+                <BsActivity className="nav-icon" />
+                <span>Practice Home</span>
+              </NavLink>
+
+              <NavLink 
+                to="/appointments" 
+                className={({ isActive }) => isActive ? "doctor-nav-link active" : "doctor-nav-link"}
+              >
+                <BsCalendar2Check className="nav-icon" />
+                <span>Appointments</span>
+              </NavLink>
+
+              <NavLink 
+                to="/patients-details" 
+                className={({ isActive }) => isActive ? "doctor-nav-link active" : "doctor-nav-link"}
+              >
+                <FaUserInjured className="nav-icon" />
+                <span>Patient EHR &amp; Analysis</span>
+              </NavLink>
+            </nav>
+
+            {/* Right Actions: Reminders Bell, Doctor Profile Pill & Sign Out */}
+            <div className="doctor-nav-actions">
+              {renderReminderBell(true)}
+
+              <div 
+                className="doctor-user-pill" 
+                onClick={() => navigate("/dashboard")}
+                title={`Doctor Practice Profile: Dr. ${user?.name}`}
+              >
+                <div className="doctor-user-avatar">
+                  {user?.name?.[0]?.toUpperCase() || "D"}
+                  <span className="user-online-dot"></span>
+                </div>
+                <div className="doctor-user-meta">
+                  <span className="doctor-user-name">Dr. {user?.name || "Doctor"}</span>
+                  <span className="doctor-user-badge">
+                    <BsCheckCircleFill className="verified-icon" /> Verified Specialist
+                  </span>
+                </div>
+              </div>
+
+              <button className="doctor-logout-btn" onClick={logout} title="Log Out of Portal">
+                <FaSignOutAlt />
+                <span>Log out</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Viewport for Doctor */}
+        <main className="doctor-web-main">
+          <Outlet />
+        </main>
+
+        {/* Modern Doctor Website Footer */}
+        <footer className="doctor-footer">
+          <div className="doctor-footer-container">
+            <div className="doctor-footer-col">
+              <h4>HealthRay Doctor Pro</h4>
+              <p style={{ fontSize: "13px", lineHeight: "1.6", color: "#94a3b8", marginBottom: "16px" }}>
+                Empowering medical Specialists with smart OPD management, digital EHR records, AI consultation note generation, and seamless patient care workflows.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "12.5px", color: "#cbd5e1" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FaLock style={{ color: "#38bdf8", fontSize: "12px" }} /> HIPAA &amp; ISO 27001 Certified Clinical Data Standard
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FaShieldAlt style={{ color: "#10b981", fontSize: "12px" }} /> 256-Bit Encrypted Electronic Health Records
+                </span>
+              </div>
+            </div>
+
+            <div className="doctor-footer-col">
+              <h4>Practice Hub</h4>
+              <ul className="doctor-footer-links">
+                <li><NavLink to="/dashboard">Practice Overview &amp; KPIs</NavLink></li>
+                <li><NavLink to="/appointments">Consultation Schedule &amp; Slots</NavLink></li>
+                <li><NavLink to="/patients-details">Patient EHR Directory</NavLink></li>
+                <li><NavLink to="/patients-details">AI Clinical SOAP Notes</NavLink></li>
+              </ul>
+            </div>
+
+            <div className="doctor-footer-col">
+              <h4>Clinical Standards</h4>
+              <ul className="doctor-footer-links">
+                <li><span>OPD Consultation Workflow</span></li>
+                <li><span>Tele-medicine Protocols</span></li>
+                <li><span>ICD-10 Diagnostic Guidance</span></li>
+                <li><span>Prescription Security</span></li>
+              </ul>
+            </div>
+
+            <div className="doctor-footer-col">
+              <h4>Doctor Desk Hotline</h4>
+              <p style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "10px" }}>
+                Dedicated technical &amp; clinical support desk for attending doctors.
+              </p>
+              <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "12px", padding: "14px" }}>
+                <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", fontWeight: "700" }}>Doctor Emergency Line</div>
+                <div style={{ fontSize: "16px", fontWeight: "800", color: "#38bdf8", margin: "2px 0" }}>1800-HEALTH-DOC</div>
+                <div style={{ fontSize: "12px", color: "#cbd5e1" }}>doctorsupport@healthray.com</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="doctor-footer-bottom">
+            <p>© {new Date().getFullYear()} HealthRay Care Technologies. Practo Pro &amp; NexOPD-inspired Doctor Practice Portal. All rights reserved.</p>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 3. ADMIN VIEW: DASHBOARD WORKSPACE (UNCHANGED)
   // ─────────────────────────────────────────────────────────────
   return (
     <div className="clinic-workspace">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "../styles/dashboard.css";
 import "../styles/patientWebsite.css";
+import "../styles/doctorWebsite.css";
 import { 
   FaUserInjured, FaUserMd, FaCalendarCheck, FaUserCircle, FaHeartbeat, FaChartLine,
   FaSearch, FaMapMarkerAlt, FaNotesMedical, FaStar, FaPhoneAlt, FaCheckCircle,
@@ -66,6 +67,8 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [patientProfile, setPatientProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recentPatients, setRecentPatients] = useState([]);
+  const [recentAppointments, setRecentAppointments] = useState([]);
 
   // Patient Quick Edit Profile Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -190,6 +193,9 @@ export default function Dashboard() {
       const patientCount = user.role === "patient" ? 1 : patientList.length;
       const doctorCount = doctorList.length;
       const appointmentsCount = totalAppts || appointmentList.length;
+
+      setRecentPatients(patientList);
+      setRecentAppointments(appointmentList);
 
       setMetrics({
         patients: patientCount,
@@ -1192,7 +1198,513 @@ export default function Dashboard() {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. DOCTOR & ADMIN VIEW: DASHBOARD WORKSPACE (UNCHANGED)
+  // 2. DOCTOR VIEW: PRACTO PRO & NEXOPD HEALTHCARE WEBSITE HOME
+  // ─────────────────────────────────────────────────────────────
+  if (role === "doctor") {
+    const handleDoctorSearch = (e) => {
+      e?.preventDefault();
+      if (patientSearch.trim()) {
+        navigate(`/patients-details?search=${encodeURIComponent(patientSearch.trim())}`);
+      } else {
+        navigate("/patients-details");
+      }
+    };
+
+    return (
+      <div className="doctor-website-home">
+        {/* ── 1. PRACTO PRO HERO BANNER & SEARCH DESK ── */}
+        <section className="doctor-hero-banner">
+          <div className="doctor-hero-inner">
+            <div className="hero-eyebrow-pill">
+              <span className="hero-sparkle-dot"></span>
+              <span>HealthRay Doctor Pro • Outpatient Practice Desk</span>
+            </div>
+
+            <h1 className="doctor-hero-heading" style={{ color: "#0f172a", fontSize: "32px", fontWeight: "850", letterSpacing: "-0.6px", lineHeight: "1.25" }}>
+              Welcome to your Practice Portal, Dr. <span style={{ color: "#0284c7" }}>{user?.name || "Doctor"}</span>
+            </h1>
+            <p className="doctor-hero-subheading" style={{ color: "#475569", fontSize: "15px", lineHeight: "1.6", marginBottom: "24px" }}>
+              Manage your OPD schedule, review digital EHR records, write AI consultation notes, and track patient clinical analysis in real time.
+            </p>
+
+            {/* Hero Quick Stat Chips */}
+            <div className="doctor-hero-stats-row">
+              <div className="hero-stat-chip">
+                <FaStethoscope className="stat-chip-icon" />
+                <span>OPD Desk: <strong>Live • Appointments 1 - {metrics.appointments || 10}</strong></span>
+              </div>
+              <div className="hero-stat-chip">
+                <BsCalendar2Check className="stat-chip-icon" />
+                <span>Today: <strong>{todayFormatted}</strong></span>
+              </div>
+              <div className="hero-stat-chip">
+                <BsActivity className="stat-chip-icon" />
+                <span>Attending Specialist: <strong>Dr. {user?.name || "Doctor"}</strong></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 2. PRACTO SPECIALTY DEPT QUICK GRID ── */}
+        <div style={{ marginBottom: "36px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: "10px" }}>
+              <FaStethoscope style={{ color: "#0284c7" }} />
+              <span>Specialty Practice Departments</span>
+            </h3>
+            <span style={{ fontSize: "12.5px", color: "#64748b", fontWeight: "600" }}>HealthRay OPD Network</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "16px" }}>
+            {[
+              { title: "General OPD", Icon: FaStethoscope, color: "#0284c7", bg: "#e0f2fe", count: "Active Desk" },
+              { title: "Cardiology", Icon: FaHeartbeat, color: "#ef4444", bg: "#fef2f2", count: "Heart Care" },
+              { title: "Neurology", Icon: FaBrain, color: "#8b5cf6", bg: "#f3e8ff", count: "Brain & Spine" },
+              { title: "Orthopedics", Icon: FaBone, color: "#f59e0b", bg: "#fef3c7", count: "Joint Care" },
+              { title: "Pediatrics", Icon: FaBaby, color: "#10b981", bg: "#d1fae5", count: "Child Care" },
+              { title: "Dental Care", Icon: FaTooth, color: "#06b6d4", bg: "#cff4fc", count: "Oral Surgery" },
+            ].map((spec, i) => (
+              <div 
+                key={i} 
+                onClick={() => navigate(`/appointments?specialty=${encodeURIComponent(spec.title)}`)}
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "22px",
+                  padding: "20px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: "0 4px 16px -4px rgba(15, 23, 42, 0.05)"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-5px)";
+                  e.currentTarget.style.borderColor = spec.color;
+                  e.currentTarget.style.boxShadow = `0 12px 28px -4px ${spec.color}30`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.borderColor = "#e2e8f0";
+                  e.currentTarget.style.boxShadow = "0 4px 16px -4px rgba(15, 23, 42, 0.05)";
+                }}
+              >
+                <div style={{
+                  width: "50px",
+                  height: "50px",
+                  borderRadius: "16px",
+                  background: spec.bg,
+                  color: spec.color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                  marginBottom: "12px"
+                }}>
+                  <spec.Icon />
+                </div>
+                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginBottom: "3px" }}>{spec.title}</div>
+                <div style={{ fontSize: "11.5px", color: "#64748b", fontWeight: "600" }}>{spec.count}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── 3. PRACTO PRO & NEXOPD KPI STATS CARDS (MATCHING USER IMAGE 1 EXACTLY) ── */}
+        <div className="doctor-kpi-grid">
+          {/* Card 1 */}
+          <div className="doctor-kpi-card" onClick={() => navigate("/appointments")}>
+            <div className="kpi-card-top">
+              <div className="kpi-icon-wrapper icon-blue">
+                <BsCalendar2Check />
+              </div>
+              <span className="kpi-trend-badge trend-blue">+12% this week</span>
+            </div>
+            <div>
+              <div className="kpi-value">{metrics.appointments}</div>
+              <div className="kpi-title">Scheduled Appointments</div>
+            </div>
+            <div className="kpi-subtext">Click to manage schedule &amp; slots →</div>
+          </div>
+
+          {/* Card 2 */}
+          <div className="doctor-kpi-card" onClick={() => navigate("/patients-details")} style={{ borderColor: "#38bdf8", boxShadow: "0 8px 24px -4px rgba(56, 189, 248, 0.2)" }}>
+            <div className="kpi-card-top">
+              <div className="kpi-icon-wrapper icon-emerald">
+                <FaUserInjured />
+              </div>
+              <span className="kpi-trend-badge trend-up">Active EHR</span>
+            </div>
+            <div>
+              <div className="kpi-value">{metrics.patients}</div>
+              <div className="kpi-title">Patients Under Care</div>
+            </div>
+            <div className="kpi-subtext">Click for EHR &amp; Clinical Analysis →</div>
+          </div>
+
+          {/* Card 3 */}
+          <div className="doctor-kpi-card" onClick={() => navigate("/patients-details")}>
+            <div className="kpi-card-top">
+              <div className="kpi-icon-wrapper icon-purple">
+                <BsFileEarmarkMedical />
+              </div>
+              <span className="kpi-trend-badge trend-blue">SOAP Notes</span>
+            </div>
+            <div>
+              <div className="kpi-value">{metrics.completed}</div>
+              <div className="kpi-title">Completed Consultations</div>
+            </div>
+            <div className="kpi-subtext">Clinical summaries recorded →</div>
+          </div>
+
+          {/* Card 4 */}
+          <div className="doctor-kpi-card" onClick={() => navigate("/appointments")}>
+            <div className="kpi-card-top">
+              <div className="kpi-icon-wrapper icon-amber">
+                <FaUserMd />
+              </div>
+              <span className="kpi-trend-badge trend-up">Network Active</span>
+            </div>
+            <div>
+              <div className="kpi-value">{metrics.doctors}</div>
+              <div className="kpi-title">Medical Staff &amp; Specialists</div>
+            </div>
+            <div className="kpi-subtext">HealthRay Clinic Doctors →</div>
+          </div>
+        </div>
+
+        {/* ── 4. OPD SCHEDULE & QUICK CLINICAL TOOLS (NEXOPD STYLE) ── */}
+        <div className="doctor-section-grid">
+          {/* Left Panel: Today's Patient Schedule */}
+          <div className="doctor-card-panel">
+            <div className="panel-header">
+              <div className="panel-title">
+                <BsCalendar2Check className="panel-icon" />
+                <span>Today's Patient Schedule &amp; Live OPD Desk</span>
+              </div>
+              <Link to="/appointments" className="panel-action-link">
+                View Schedule Calendar <BsArrowRight />
+              </Link>
+            </div>
+
+            <div className="doctor-schedule-list">
+              {recentAppointments && recentAppointments.length > 0 ? (
+                recentAppointments.slice(0, 4).map((appt, idx) => (
+                  <div key={appt.id} className="schedule-item-card">
+                    <div className="patient-info-group">
+                      <span className="token-badge">Slot #{idx + 1}</span>
+                      <div className="patient-avatar-circle">
+                        {appt.patient?.name?.[0]?.toUpperCase() || "P"}
+                      </div>
+                      <div>
+                        <div className="patient-name-text">{appt.patient?.name || "Scheduled Patient"}</div>
+                        <div className="patient-sub-meta">
+                          Attending: Dr. {appt.doctor?.name || user?.name} • {appt.doctor?.specialty || "OPD"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      <div className="time-slot-chip">
+                        <BsClockHistory style={{ color: "#0284c7" }} />
+                        <span>{appt.time || "09:30 AM"}</span>
+                      </div>
+                      <span className="status-badge-scheduled">Scheduled</span>
+                      <button 
+                        className="action-btn-primary"
+                        onClick={() => {
+                          const targetId = appt.patientId || appt.patient?.id;
+                          if (targetId) {
+                            navigate(`/patients-details?patientId=${targetId}`);
+                          } else {
+                            navigate("/patients-details");
+                          }
+                        }}
+                        title="Open Clinical SOAP Note & EHR"
+                      >
+                        <BsFileEarmarkMedical />
+                        <span>Clinical Note</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ textAlign: "center", padding: "32px 16px", color: "#64748b" }}>
+                  <BsCalendar2Check size={36} style={{ marginBottom: "12px", color: "#cbd5e1" }} />
+                  <p style={{ fontSize: "14px", fontWeight: "600", color: "#334155" }}>No appointments scheduled for today</p>
+                  <p style={{ fontSize: "12.5px" }}>Click below to book or view full schedule</p>
+                  <button 
+                    className="action-btn-primary" 
+                    style={{ marginTop: "14px" }}
+                    onClick={() => navigate("/appointments")}
+                  >
+                    Manage Appointments
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel: Quick OPD Shortcuts */}
+          <div className="doctor-card-panel">
+            <div className="panel-header">
+              <div className="panel-title">
+                <BsShieldCheck className="panel-icon" />
+                <span>Doctor Quick Tools</span>
+              </div>
+            </div>
+
+            <div className="quick-tools-grid">
+              <div className="quick-tool-card" onClick={() => navigate("/appointments")}>
+                <div className="tool-icon-box icon-blue">
+                  <BsCalendar2Check />
+                </div>
+                <div className="tool-info">
+                  <h4>Schedule Appointment</h4>
+                  <p>Book &amp; manage OPD consultation slots</p>
+                </div>
+              </div>
+
+              <div className="quick-tool-card" onClick={() => navigate("/patients-details")}>
+                <div className="tool-icon-box icon-emerald">
+                  <FaUserInjured />
+                </div>
+                <div className="tool-info">
+                  <h4>Patient EHR Directory</h4>
+                  <p>Access patient medical records &amp; history</p>
+                </div>
+              </div>
+
+              <div className="quick-tool-card" onClick={() => navigate("/patients-details")}>
+                <div className="tool-icon-box icon-purple">
+                  <BsFileEarmarkMedical />
+                </div>
+                <div className="tool-info">
+                  <h4>AI Clinical SOAP Notes</h4>
+                  <p>Record audio or draft AI medical summaries</p>
+                </div>
+              </div>
+
+              <div className="quick-tool-card" onClick={() => navigate("/patients-details")}>
+                <div className="tool-icon-box icon-amber">
+                  <BsChatSquareHeart />
+                </div>
+                <div className="tool-info">
+                  <h4>Patient AI Workspace</h4>
+                  <p>AI diagnostic support &amp; patient chat</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 5. RECENT PATIENT RECORDS & CLINICAL ANALYSIS SHOWCASE ── */}
+        <div className="doctor-card-panel" style={{ marginBottom: "36px" }}>
+          <div className="panel-header">
+            <div className="panel-title">
+              <FaUserInjured className="panel-icon" />
+              <span>Recent Patient Records &amp; Clinical Analysis</span>
+            </div>
+            <Link to="/patients-details" className="panel-action-link">
+              Open Full Directory <BsArrowRight />
+            </Link>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "18px" }}>
+            {recentPatients && recentPatients.length > 0 ? (
+              recentPatients.slice(0, 3).map((pat) => (
+                <div key={pat.id} style={{
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "18px",
+                  padding: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  transition: "all 0.2s ease"
+                }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div className="patient-avatar-circle" style={{ width: "38px", height: "38px", fontSize: "14px" }}>
+                          {pat.name?.[0]?.toUpperCase() || "P"}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: "750", fontSize: "14.5px", color: "#0f172a" }}>{pat.name}</div>
+                          <div style={{ fontSize: "12px", color: "#64748b" }}>Age {pat.age} • {pat.gender}</div>
+                        </div>
+                      </div>
+                      <span style={{
+                        background: "#e0f2fe",
+                        color: "#0284c7",
+                        padding: "3px 10px",
+                        borderRadius: "12px",
+                        fontSize: "11.5px",
+                        fontWeight: "750"
+                      }}>
+                        {pat.bloodGroup || "O+"}
+                      </span>
+                    </div>
+
+                    <p style={{ fontSize: "12.5px", color: "#475569", lineHeight: "1.5", marginBottom: "16px", background: "#ffffff", padding: "10px 12px", borderRadius: "10px", border: "1px solid #f1f5f9" }}>
+                      {pat.medicalNotes ? `Note: "${pat.medicalNotes.slice(0, 70)}..."` : "No special medical notes recorded"}
+                    </p>
+                  </div>
+
+                  <button 
+                    className="action-btn-secondary"
+                    style={{ width: "100%", justifyContent: "center" }}
+                    onClick={() => navigate(`/patients-details?patientId=${pat.id}`)}
+                  >
+                    <BsActivity />
+                    <span>Analyze Case &amp; Notes</span>
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "24px", color: "#64748b" }}>
+                <p>No patient records currently available</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── 6. PRACTICE TRENDS & CLINICAL DISTRIBUTION (MATCHING USER IMAGE 2 EXACTLY) ── */}
+        <div className="doctor-section-grid">
+          {/* Trend Graph Card */}
+          <div className="doctor-card-panel">
+            <div className="panel-header">
+              <div className="panel-title">
+                <FaChartLine className="panel-icon" />
+                <span>OPD Appointment Volume Trends</span>
+              </div>
+              <div style={{ display: "flex", gap: "6px", background: "#f1f5f9", padding: "3px", borderRadius: "10px" }}>
+                <button 
+                  onClick={() => setActiveRange("week")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "8px",
+                    border: "none",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    background: activeRange === "week" ? "#0284c7" : "transparent",
+                    color: activeRange === "week" ? "#ffffff" : "#64748b"
+                  }}
+                >
+                  Weekly
+                </button>
+                <button 
+                  onClick={() => setActiveRange("month")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "8px",
+                    border: "none",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    background: activeRange === "month" ? "#0284c7" : "transparent",
+                    color: activeRange === "month" ? "#ffffff" : "#64748b"
+                  }}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
+
+            {/* SVG Trend Bar Chart */}
+            <div style={{ height: "200px", display: "flex", alignItems: "flex-end", gap: "16px", padding: "20px 10px 10px", background: "#f8fafc", borderRadius: "16px" }}>
+              {trendData[activeRange].map((item, idx) => {
+                const maxVal = Math.max(...trendData[activeRange].map((d) => d.value), 1);
+                const heightPercent = Math.max(15, Math.round((item.value / maxVal) * 100));
+                return (
+                  <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", height: "100%", justifyContent: "flex-end" }}>
+                    <span style={{ fontSize: "11px", fontWeight: "700", color: "#0284c7" }}>{item.value}</span>
+                    <div style={{
+                      width: "100%",
+                      maxWidth: "36px",
+                      height: `${heightPercent}%`,
+                      background: "linear-gradient(180deg, #0284c7 0%, #38bdf8 100%)",
+                      borderRadius: "8px 8px 0 0",
+                      transition: "all 0.3s ease"
+                    }}></div>
+                    <span style={{ fontSize: "11.5px", fontWeight: "650", color: "#64748b" }}>{item.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Department Breakdown Card (Matching User Image 2) */}
+          <div className="doctor-card-panel">
+            <div className="panel-header">
+              <div className="panel-title">
+                <FaHeartbeat className="panel-icon" style={{ color: "#0284c7" }} />
+                <span style={{ fontWeight: "850", fontSize: "18px", color: "#0f172a" }}>Department Breakdown</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "22px", paddingTop: "6px" }}>
+              {distributionData && distributionData.length > 0 ? (
+                distributionData.map((dept, idx) => {
+                  const deptName = dept.name || dept.department || `Department ${idx + 1}`;
+                  const deptVal = dept.percent !== undefined ? dept.percent : 25;
+                  const barColors = ["#0284c7", "#10b981", "#0284c7", "#10b981", "#8b5cf6", "#f59e0b"];
+                  const activeColor = dept.color || barColors[idx % barColors.length];
+
+                  return (
+                    <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: "13.5px", fontWeight: "750", color: "#0f172a" }}>{deptName}</span>
+                        <span style={{ fontSize: "14px", fontWeight: "850", color: activeColor }}>{deptVal}%</span>
+                      </div>
+                      <div style={{ height: "10px", width: "100%", background: "#f1f5f9", borderRadius: "10px", overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%",
+                          width: `${deptVal}%`,
+                          background: activeColor,
+                          borderRadius: "10px",
+                          transition: "width 0.4s ease-in-out"
+                        }}></div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                [
+                  { name: "General Medicine", percent: 45, color: "#0284c7" },
+                  { name: "Cardiology", percent: 25, color: "#10b981" },
+                  { name: "Pediatrics", percent: 20, color: "#0284c7" },
+                  { name: "Orthopedics", percent: 10, color: "#10b981" },
+                ].map((dept, idx) => (
+                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "13.5px", fontWeight: "750", color: "#0f172a" }}>{dept.name}</span>
+                      <span style={{ fontSize: "14px", fontWeight: "850", color: dept.color }}>{dept.percent}%</span>
+                    </div>
+                    <div style={{ height: "10px", width: "100%", background: "#f1f5f9", borderRadius: "10px", overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${dept.percent}%`,
+                        background: dept.color,
+                        borderRadius: "10px",
+                        transition: "width 0.4s ease-in-out"
+                      }}></div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 3. ADMIN VIEW: DASHBOARD WORKSPACE (UNCHANGED)
   // ─────────────────────────────────────────────────────────────
   return (
     <div className="dashboard">

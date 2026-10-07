@@ -5,13 +5,16 @@ import "../styles/chatbox.css";
 import "../styles/consultation.css";
 import DoctorChatBox from "../components/DoctorChatBox.jsx";
 import ConsultationNote from "../components/ConsultationNote.jsx";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowLeft, FaChevronLeft, FaChevronRight, FaUserInjured } from "react-icons/fa";
 import { BsActivity, BsInbox } from "react-icons/bs";
 import { HiOutlineSparkles } from "react-icons/hi";
 
 export default function PatientsDetails() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetPatientId = searchParams.get("patientId");
+
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
 
@@ -42,6 +45,20 @@ export default function PatientsDetails() {
   useEffect(() => {
     fetchPatients();
   }, []);
+
+  // Auto-select patient if patientId query param is provided
+  useEffect(() => {
+    if (patients.length > 0 && targetPatientId) {
+      const found = patients.find((p) => String(p.id) === String(targetPatientId));
+      if (found) {
+        setSelectedPatient(found);
+        const idx = patients.findIndex((p) => String(p.id) === String(targetPatientId));
+        if (idx !== -1) {
+          setCurrentPage(Math.floor(idx / recordsPerPage) + 1);
+        }
+      }
+    }
+  }, [patients, targetPatientId]);
 
   // Pagination Logic
   const indexOfLast = currentPage * recordsPerPage;
