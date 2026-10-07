@@ -45,6 +45,11 @@ export default function Layout() {
   }, []);
 
 
+  const logout = () => {
+    localStorage.removeItem("user");
+    navigate("/");
+  };
+
   // Reusable reminder alerts component
   const renderReminderBell = (isWebsite = false) => (
     <div 
@@ -348,6 +353,23 @@ export default function Layout() {
               </NavLink>
             </>
           )}
+           {user?.role === "patient" && (
+            <>
+              <div className="nav-group-label">Patient Desk</div>
+              <NavLink to="/patient-profile" className={({ isActive }) => isActive ? "sidebar-link active" : "sidebar-link"}>
+                <BsShieldLock className="link-icon" />
+                <span>My Health Profile</span>
+              </NavLink>
+              <NavLink to="/patient-doctors" className={({ isActive }) => isActive ? "sidebar-link active" : "sidebar-link"}>
+                <FaUserMd className="link-icon" />
+                <span>Find & Book Doctor</span>
+              </NavLink>
+              <NavLink to="/patient-notes" className={({ isActive }) => isActive ? "sidebar-link active" : "sidebar-link"}>
+                <BsFileEarmarkMedical className="link-icon" />
+                <span>Consultation Notes</span>
+              </NavLink>
+            </>
+          )}
         </nav>
 
         {/* Sidebar User Profile Footer */}
@@ -377,7 +399,70 @@ export default function Layout() {
           </div>
 
           <div className="topbar-actions">
-            {user?.role === "doctor" && renderReminderBell(false)}
+              {(user?.role === "patient" || user?.role === "doctor") && (
+              <div 
+                className="notification-bell" 
+                title="Alerts"
+                onClick={() => {
+                  const newOpen = !remindersOpen;
+                  setRemindersOpen(newOpen);
+                  if (newOpen && reminders.length > 0) {
+                    // Mark all current reminders as seen
+                    const allIds = reminders.map((r) => r.id);
+                    const updatedSeen = new Set([...seenReminderIds, ...allIds]);
+                    setSeenReminderIds(updatedSeen);
+                    localStorage.setItem(
+                      `seenReminders_${user?.id}`,
+                      JSON.stringify([...updatedSeen])
+                    );
+                  }
+                }}
+              >
+                <FaBell />
+                {reminders.filter((r) => !seenReminderIds.has(r.id)).length > 0 && (
+                  <span className="notification-badge">
+                    {reminders.filter((r) => !seenReminderIds.has(r.id)).length}
+                  </span>
+                )}
+                
+                {remindersOpen && (
+                  <div className="layout-reminders-dropdown" onClick={(e) => e.stopPropagation()}>
+                    <div className="dropdown-header">
+                      <h3>Reminders</h3>
+                      {reminders.filter((r) => !seenReminderIds.has(r.id)).length > 0 && (
+                        <span className="count-badge">
+                          {reminders.filter((r) => !seenReminderIds.has(r.id)).length} New
+                        </span>
+                      )}
+                    </div>
+                    <div className="dropdown-body">
+                      {reminders.length === 0 ? (
+                        <div className="no-reminders">No new reminders</div>
+                      ) : (
+                        reminders.map((rem) => (
+                          <div key={rem.id} className="dropdown-item">
+                            <div className="item-icon"><FaBell size={13} /></div>
+                            <div className="item-content">
+                              <p className="item-message">{rem.message}</p>
+                              <span className="item-meta">
+                                {user.role === "patient" 
+                                  ? `Doctor: ${rem.appointment?.doctor?.name || "N/A"}`
+                                  : `Patient: ${rem.appointment?.patient?.name || "N/A"}`}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button className="topbar-logout-btn" onClick={logout}>
+              <FaSignOutAlt />
+              <span>Log out</span>
+            </button>
 
            
           </div>
