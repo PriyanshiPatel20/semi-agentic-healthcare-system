@@ -3,9 +3,11 @@ import API from "../api";
 import "../styles/auth.css";
 import { BsHospital, BsShieldLock } from "react-icons/bs";
 import { FaUserPlus, FaUserMd, FaUserInjured, FaUserShield } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 export default function Register() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -23,15 +25,15 @@ export default function Register() {
   const handleRegister = async () => {
     try {
       if (!form.name || !form.email || !form.password) {
-        alert("Please fill in all required primary fields");
+        toast.warning("Please fill in all required primary fields");
         return;
       }
       setLoading(true);
       await API.post("/auth/register", form);
-      alert("Registration successful. Please sign in.");
-      window.location.href = "/";
+      toast.success("Registration successful. Please sign in.");
+      navigate("/");
     } catch (error) {
-      alert(error.response?.data?.error || "Registration failed");
+      toast.error(error.response?.data?.error || "Registration failed");
     } finally {
       setLoading(false);
     }

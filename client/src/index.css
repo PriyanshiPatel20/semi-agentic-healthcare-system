@@ -1530,68 +1530,84 @@ tbody tr.row-selected {
 
 /* ── PATIENT HEALTH PROFILE (PatientProfile.jsx) ── */
 .profile-page {
-  max-width: 860px;
+  max-width: 960px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .profile-page .profile-header {
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  padding: 28px 32px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #162032 100%);
+  padding: 36px 40px;
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 28px;
   color: #ffffff;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 20px 48px rgba(15,23,42,0.22), 0 0 0 1px rgba(20,190,240,0.08) inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-page .profile-header::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(20,190,240,0.12) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .profile-avatar-box {
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(20,190,240,0.2) 0%, rgba(2,132,199,0.15) 100%);
+  border: 2px solid rgba(20,190,240,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(20,190,240,0.2);
 }
 
 .profile-avatar-icon {
-  font-size: 42px;
+  font-size: 52px;
 }
 
 .profile-header-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .profile-header-title-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .profile-header-title-row h1 {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 800;
   color: #ffffff;
+  letter-spacing: -0.5px;
 }
 
 .profile-verified-badge {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   color: #5eead4;
-  background-color: rgba(13, 148, 136, 0.25);
-  border: 1px solid rgba(13, 148, 136, 0.4);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
+  background-color: rgba(13, 148, 136, 0.2);
+  border: 1px solid rgba(13, 148, 136, 0.45);
+  padding: 4px 12px;
+  border-radius: 20px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1613,26 +1629,32 @@ tbody tr.row-selected {
 .profile-page .profile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 28px;
 }
 
 .profile-page .info-card {
   background-color: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-flat);
-  padding: 22px;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(15,23,42,0.04);
+  padding: 28px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  transition: all 0.2s ease;
+}
+
+.profile-page .info-card:hover {
+  border-color: #bae6fd;
+  box-shadow: 0 8px 28px rgba(2,132,199,0.08);
 }
 
 .info-card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 10px;
+  padding-bottom: 14px;
   margin-bottom: 4px;
 }
 
@@ -1642,20 +1664,20 @@ tbody tr.row-selected {
 }
 
 .info-card-header h3 {
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 12.5px;
+  font-weight: 800;
   color: var(--text-main);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.6px;
 }
 
 .profile-page .info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13.5px;
-  padding: 6px 0;
-  border-bottom: 1px dashed var(--border-light);
+  font-size: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .profile-page .info-row:last-of-type {

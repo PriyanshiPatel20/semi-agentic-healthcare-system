@@ -4,6 +4,7 @@ import "../styles/chatbox.css";
 import ReactMarkdown from "react-markdown";
 import { FaSave, FaFilePdf } from "react-icons/fa";
 import { FaUserDoctor } from "react-icons/fa6";
+import { toast } from "react-toastify";
 
 export default function DoctorChatBox({ patient }) {
   const [message, setMessage] = useState("");
@@ -198,12 +199,12 @@ Avoid mentioning missing information.
         }
       );
 
-      alert("Medical Record Saved");
+      toast.success("Medical Record Saved successfully!");
 
     } catch (err) {
       console.log(err);
 
-      alert("Failed to save medical record");
+      toast.error(err.response?.data?.error || "Failed to save medical record");
     }
   };
 
@@ -266,11 +267,12 @@ Avoid mentioning missing information.
       link.click();
 
       link.remove();
+      toast.success("PDF report generated and downloaded!");
 
     } catch (err) {
       console.log(err);
 
-      alert("Failed to generate PDF report");
+      toast.error(err.response?.data?.error || "Failed to generate PDF report");
     }
   };
 

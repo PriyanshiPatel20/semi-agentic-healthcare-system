@@ -1,0 +1,1517 @@
+/* ==========================================================================
+   HEALTHRAY MODERN HEALTHCARE DESIGN SYSTEM (Creative & Premium)
+   ========================================================================== */
+
+/* ── ROOT & TYPOGRAPHY ── */
+.patient-website-root {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* ── CREATIVE LUMINOUS TOP ANNOUNCEMENT RIBBON ── */
+.practo-top-utility-bar {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12.5px;
+  padding: 0;
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+  overflow: hidden;
+}
+
+.practo-top-utility-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 28px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.practo-utility-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.practo-utility-live-dot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #a7f3d0;
+}
+
+.utility-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  animation: utilityPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes utilityPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+.practo-badge-pill {
+  background: #f0f9ff;
+  color: #0284c7;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  border: 1px solid #bae6fd;
+}
+
+.utility-separator {
+  width: 1px;
+  height: 14px;
+  background: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.utility-announcement {
+  font-size: 12.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.utility-announcement strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.practo-utility-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.utility-hotline-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 4px 14px 4px 10px;
+  border-radius: 20px;
+  color: #334155;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.utility-hotline-pill:hover {
+  background: #f0f9ff;
+  border-color: #0284c7;
+  color: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
+}
+
+.utility-hotline-icon {
+  font-size: 11px;
+  color: #0284c7;
+}
+
+.practo-helpline-tag strong {
+  color: #0284c7;
+  font-weight: 800;
+}
+
+/* ── CREATIVE STICKY GLASS NAVBAR ── */
+.practo-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.practo-navbar-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 28px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Creative Brand Logo */
+.practo-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.practo-brand:hover {
+  transform: translateY(-1px);
+}
+
+.practo-brand-icon-box {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 16px;
+  box-shadow: 0 6px 14px rgba(2, 132, 199, 0.25);
+}
+
+.brand-glow-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(37, 99, 235, 0.15));
+  z-index: -1;
+  opacity: 0.6;
+  filter: blur(4px);
+}
+
+.practo-brand-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brand-main-practo {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+}
+
+.brand-badge-super {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.brand-sub-practo {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.2px;
+  display: block;
+}
+
+/* Creative Smart Clinic Selector */
+.practo-location-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 30px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.practo-location-pill:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.1);
+}
+
+.location-pin-wrap {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e0f2fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.location-icon-pin {
+  color: #0284c7;
+  font-size: 13px;
+}
+
+.location-pulse-dot {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 1.5px solid #ffffff;
+}
+
+.location-text-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.location-clinic-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.location-clinic-sub {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #0284c7;
+}
+
+/* Segmented Creative Nav Capsule */
+.practo-nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 5px;
+  border-radius: 30px;
+  border: 1px solid #e2e8f0;
+}
+
+.practo-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.practo-nav-link .nav-icon {
+  font-size: 14px;
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.practo-nav-link:hover {
+  color: #0284c7;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.practo-nav-link:hover .nav-icon {
+  color: #0284c7;
+}
+
+.practo-nav-link.active {
+  color: #0284c7;
+  background: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+.practo-nav-link.active .nav-icon {
+  color: #0284c7;
+}
+
+/* Right Nav Controls */
+.practo-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.patient-web-bell {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.patient-web-bell:hover {
+  background: #f0f9ff;
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+
+/* Creative User Pill */
+.practo-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 6px;
+  border-radius: 30px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+}
+
+.practo-user-pill:hover {
+  border-color: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.12);
+}
+
+.practo-user-avatar {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.25);
+}
+
+.user-online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 1.5px solid #ffffff;
+}
+
+.practo-user-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.practo-user-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.practo-user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #059669;
+}
+
+.practo-user-badge .verified-icon {
+  font-size: 10px;
+  color: #10b981;
+}
+
+.practo-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.practo-logout-btn:hover {
+  background: #fff1f2;
+  color: #e11d48;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+}
+
+/* ── VIEWPORT CONTAINER ── */
+.patient-web-main {
+  flex: 1;
+}
+
+.patient-web-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   REAL-WORLD HIGH-IMPACT HERO & SEARCH ISLAND
+   ───────────────────────────────────────────────────────────── */
+
+.practo-hero-banner {
+  background: radial-gradient(circle at 50% -20%, rgba(14, 165, 233, 0.15) 0%, rgba(6, 182, 212, 0.05) 45%, #ffffff 80%);
+  padding: 48px 24px 44px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+}
+
+.practo-hero-inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero-eyebrow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0284c7;
+  padding: 6px 18px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.1);
+}
+
+.hero-sparkle-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0284c7;
+  box-shadow: 0 0 8px #0284c7;
+}
+
+.practo-hero-heading {
+  font-size: 32px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.8px;
+  line-height: 1.2;
+  margin: 0 0 12px 0;
+}
+
+.practo-hero-subheading {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #475569;
+  margin: 0 auto 24px auto;
+  max-width: 620px;
+}
+
+/* Floating High-Impact Search Island */
+.practo-search-container {
+  background: #ffffff;
+  border-radius: 22px;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.1);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 28px;
+}
+
+.practo-search-container:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 20px 50px -5px rgba(2, 132, 199, 0.22);
+  transform: translateY(-2px);
+}
+
+.practo-search-location {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 18px;
+  background: #f8fafc;
+  border-right: 1.5px solid #e2e8f0;
+  width: 32%;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.practo-search-location svg {
+  color: #0284c7;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.practo-search-doctor {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  flex: 1;
+}
+
+.practo-search-doctor svg {
+  color: #94a3b8;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.practo-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 15.5px;
+  color: #0f172a;
+  font-weight: 600;
+  background: transparent;
+}
+
+.practo-search-input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.practo-search-submit-btn {
+  background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%);
+  color: #ffffff;
+  border: none;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 11px 24px;
+  border-radius: 12px;
+  margin-right: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.32);
+}
+
+.practo-search-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.45);
+}
+
+/* Trending / Popular Symptoms Chips */
+.practo-trending-pills {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+.practo-trend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 30px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+}
+
+.practo-trend-chip:hover {
+  background: #f0f9ff;
+  color: #0284c7;
+  border-color: #bae6fd;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.14);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SECTION WRAPPERS (SPACIOUS 88PX RHYTHM)
+   ───────────────────────────────────────────────────────────── */
+.home-section-spacious {
+  padding: 52px 0;
+}
+
+.home-section-bg-soft {
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.home-section-header {
+  margin-bottom: 32px;
+}
+
+.home-section-eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+
+.home-section-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.4px;
+  margin: 0 0 8px 0;
+}
+
+.home-section-desc {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TOP 4 SERVICE CARDS (SPACIOUS PADDING & GAP)
+   ───────────────────────────────────────────────────────────── */
+.practo-top-services-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+
+.practo-service-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 22px 20px;
+  text-decoration: none;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.22s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.practo-service-card:hover {
+  transform: translateY(-5px);
+  border-color: #14bef0;
+  box-shadow: 0 16px 32px rgba(20, 190, 240, 0.15);
+}
+
+.practo-card-visual {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+.visual-cyan { background: #e0f2fe; color: #0284c7; }
+.visual-teal { background: #f0fdfa; color: #0d9488; }
+.visual-purple { background: #f5f3ff; color: #7c3aed; }
+.visual-amber { background: #fffbeb; color: #d97706; }
+
+.practo-service-info h3 {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.practo-service-info p {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0 0 20px 0;
+}
+
+.practo-card-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  margin-bottom: 16px;
+}
+
+.practo-card-action {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: gap 0.2s;
+}
+
+.practo-service-card:hover .practo-card-action {
+  gap: 12px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   HEALTH CONCERN CIRCLES SECTION (SPACIOUS 8 CARDS)
+   ───────────────────────────────────────────────────────────── */
+.practo-concerns-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 26px;
+}
+
+.practo-concern-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 14px;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.03);
+}
+
+.practo-concern-card:hover {
+  transform: translateY(-5px);
+  border-color: #14bef0;
+  box-shadow: 0 14px 28px rgba(20, 190, 240, 0.14);
+}
+
+.concern-avatar-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  margin-bottom: 12px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.06);
+  transition: transform 0.2s;
+}
+
+.practo-concern-card:hover .concern-avatar-circle {
+  transform: scale(1.1);
+}
+
+.concern-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.concern-specialist {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 14px;
+}
+
+.concern-cta-btn {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0284c7;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SPECIALTY IN-CLINIC APPOINTMENTS GRID
+   ───────────────────────────────────────────────────────────── */
+.practo-specialties-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+}
+
+.practo-specialties-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.practo-spec-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px 22px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.practo-spec-card:hover {
+  background: #ffffff;
+  border-color: #14bef0;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px rgba(20, 190, 240, 0.12);
+}
+
+.spec-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #e0f2fe;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.spec-info h4 {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 3px 0;
+}
+
+.spec-info p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   INSIGHTS & REAL VITALS SNAPSHOT (SPACIOUS 32PX GAP)
+   ───────────────────────────────────────────────────────────── */
+.practo-dashboard-insights {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 32px;
+}
+
+.practo-chart-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.practo-chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.practo-chart-title h3 {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.practo-chart-title p {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 4px 0 0 0;
+}
+
+/* Vitals Card */
+.practo-vitals-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.practo-vitals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.practo-vital-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+}
+
+.practo-vital-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.practo-vital-value {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PRACTO CARE TRUST GUARANTEE
+   ───────────────────────────────────────────────────────────── */
+.practo-guarantee-banner {
+  background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 36px 28px;
+  color: #ffffff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.practo-guarantee-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.practo-guarantee-header h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  color: #ffffff;
+  letter-spacing: -0.4px;
+}
+
+.practo-guarantee-header p {
+  font-size: 15px;
+  color: #94a3b8;
+  margin: 0;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.practo-guarantee-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.practo-guarantee-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 22px 16px;
+  text-align: center;
+  backdrop-filter: blur(12px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.practo-guarantee-item:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+.guarantee-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  margin: 0 auto 14px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.guarantee-icon-wrapper.shield {
+  background: rgba(2, 132, 199, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+}
+
+.guarantee-icon-wrapper.bolt {
+  background: rgba(217, 119, 6, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
+}
+
+.guarantee-icon-wrapper.chat {
+  background: rgba(5, 150, 105, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.15);
+}
+
+.guarantee-icon-wrapper.lock {
+  background: rgba(124, 58, 237, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(192, 132, 252, 0.3);
+  box-shadow: 0 0 20px rgba(192, 132, 252, 0.15);
+}
+
+.practo-guarantee-item:hover .guarantee-icon-wrapper {
+  transform: scale(1.08);
+}
+
+.practo-guarantee-item h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 10px 0;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+.practo-guarantee-item p {
+  font-size: 13.5px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PATIENT STORIES / TESTIMONIALS (SPACIOUS)
+   ───────────────────────────────────────────────────────────── */
+.practo-stories-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.practo-story-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.story-stars {
+  color: #f59e0b;
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+.story-quote {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #334155;
+  font-style: italic;
+  margin: 0 0 20px 0;
+}
+
+.story-author {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 16px;
+}
+
+.story-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.story-verified {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PRACTO FOOTER
+   ───────────────────────────────────────────────────────────── */
+.practo-footer {
+  background: #0f172a;
+  color: #94a3b8;
+  padding-top: 44px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.practo-footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr 1.2fr;
+  gap: 28px;
+  margin-bottom: 36px;
+}
+
+.practo-footer-col h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 18px 0;
+  letter-spacing: -0.2px;
+}
+
+.practo-footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.practo-footer-links li a,
+.practo-footer-links li span {
+  color: #94a3b8;
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.practo-footer-links li a:hover {
+  color: #14bef0;
+}
+
+.practo-footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 24px 24px;
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .practo-top-services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .practo-concerns-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .practo-specialties-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .practo-dashboard-insights {
+    grid-template-columns: 1fr;
+  }
+  .practo-guarantee-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .practo-footer-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .practo-top-services-grid {
+    grid-template-columns: 1fr;
+  }
+  .practo-concerns-grid {
+    grid-template-columns: 1fr;
+  }
+  .practo-specialties-grid {
+    grid-template-columns: 1fr;
+  }
+  .practo-search-container {
+    flex-direction: column;
+  }
+  .practo-search-location {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .practo-guarantee-grid {
+    grid-template-columns: 1fr;
+  }
+  .practo-stories-grid {
+    grid-template-columns: 1fr;
+  }
+  .practo-footer-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   QUICK EDIT PROFILE MODAL & ACTION BUTTONS
+   ───────────────────────────────────────────────────────────── */
+.practo-edit-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.practo-edit-profile-btn:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  transform: translateY(-1px);
+}
+
+.practo-full-profile-link {
+  font-size: 12.5px;
+  color: #64748b;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.practo-full-profile-link:hover {
+  color: #0284c7;
+  background: #f8fafc;
+}
+
+.patient-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeInModal 0.2s ease-out;
+}
+
+.patient-modal-card {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  border: 1px solid #e2e8f0;
+  animation: scaleUpModal 0.22s ease-out;
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUpModal {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.patient-modal-header {
+  padding: 24px 28px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.patient-modal-header h3 {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.patient-modal-header p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 4px 0 0 0;
+}
+
+.patient-modal-close-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #64748b;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.patient-modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.patient-modal-body {
+  padding: 28px;
+}
+
+.modal-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.modal-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-form-field.full-span {
+  grid-column: span 2;
+}
+
+.modal-form-field label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.modal-form-field input,
+.modal-form-field select,
+.modal-form-field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.modal-form-field input:focus,
+.modal-form-field select:focus,
+.modal-form-field textarea:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.patient-modal-footer {
+  padding: 20px 28px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #f8fafc;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+.modal-cancel-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-cancel-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.modal-save-btn {
+  padding: 10px 24px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #14bef0 0%, #0284c7 100%);
+  border: none;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+}
+
+.modal-save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.35);
+}
+
+.modal-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

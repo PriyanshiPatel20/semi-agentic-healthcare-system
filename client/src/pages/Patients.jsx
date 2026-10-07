@@ -6,6 +6,7 @@ import ChatBox from "../components/ChatBox.jsx";
 import { useNavigate } from "react-router-dom";
 import { FaUserInjured, FaArrowLeft, FaEdit, FaTrash, FaPlus, FaCheck, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { BsThreeDotsVertical, BsInbox } from "react-icons/bs";
+import { toast } from "react-toastify";
 
 export default function Patients() {
   const navigate = useNavigate();
@@ -86,11 +87,12 @@ export default function Patients() {
         headers: { role: user?.role },
       });
 
+      toast.success("Patient created successfully!");
       fetchPatients();
       resetForm();
       setCurrentPage(1); // reset page
     } catch (err) {
-      alert("Error creating patient");
+      toast.error(err.response?.data?.error || "Error creating patient");
     }
   };
 
@@ -121,30 +123,78 @@ export default function Patients() {
         headers: { role: user?.role },
       });
 
+      toast.success("Patient updated successfully!");
       fetchPatients();
       resetForm();
       setCurrentPage(1);
     } catch (err) {
-      alert("Error updating patient");
+      toast.error(err.response?.data?.error || "Error updating patient");
     }
   };
 
   // Delete
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this patient profile?")) return;
+  const handleDelete = (id) => {
+    toast(
+      ({ closeToast }) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <span style={{ fontSize: "13.5px", fontWeight: "600", color: "#1e293b" }}>
+            Are you sure you want to delete this patient profile?
+          </span>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+            <button
+              onClick={closeToast}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                background: "#ffffff",
+                color: "#475569",
+                fontSize: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                closeToast();
+                try {
+                  const user = JSON.parse(localStorage.getItem("user"));
+                  await API.delete(`/patients/${id}`, {
+                    headers: { role: user?.role },
+                  });
 
-    try {
-      const user = JSON.parse(localStorage.getItem("user"));
-
-      await API.delete(`/patients/${id}`, {
-        headers: { role: user?.role },
-      });
-
-      fetchPatients();
-      setCurrentPage(1);
-    } catch (err) {
-      alert("Error deleting patient");
-    }
+                  toast.success("Patient deleted successfully!");
+                  fetchPatients();
+                  setCurrentPage(1);
+                } catch (err) {
+                  toast.error(err.response?.data?.error || "Error deleting patient");
+                }
+              }}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "none",
+                background: "#ef4444",
+                color: "#ffffff",
+                fontSize: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        autoClose: 5000,
+        closeOnClick: false,
+        draggable: false,
+        position: "top-center",
+      }
+    );
   };
 
   // Reset Form

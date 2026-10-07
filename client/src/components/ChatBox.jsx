@@ -72,17 +72,17 @@ export default function ChatBox() {
       const user = JSON.parse(localStorage.getItem("user"));
 
       if (!user) {
-        alert("Login first");
+        toast.warning("Please login first");
         return;
       }
 
       if (!date) {
-        alert("Please select date");
+        toast.warning("Please select date");
         return;
       }
 
       if (!time) {
-        alert("Please select time");
+        toast.warning("Please select time");
         return;
       }
 
@@ -156,24 +156,72 @@ export default function ChatBox() {
     }
   };
 
-  const clearChatHistory = async () => {
-    if (!window.confirm("Are you sure you want to clear your chat history?")) return;
-    try {
-      const user = JSON.parse(localStorage.getItem("user"));
-      if (!user) return;
+  const clearChatHistory = () => {
+    toast(
+      ({ closeToast }) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <span style={{ fontSize: "13.5px", fontWeight: "600", color: "#1e293b" }}>
+            Are you sure you want to clear your chat history?
+          </span>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+            <button
+              onClick={closeToast}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                background: "#ffffff",
+                color: "#475569",
+                fontSize: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                closeToast();
+                try {
+                  const user = JSON.parse(localStorage.getItem("user"));
+                  if (!user) return;
 
-      await API.delete("/chat", {
-        headers: {
-          role: "patient",
-          userid: user.id,
-        },
-      });
-      setChat([]);
-      toast.success("Chat history cleared!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to clear chat history.");
-    }
+                  await API.delete("/chat", {
+                    headers: {
+                      role: "patient",
+                      userid: user.id,
+                    },
+                  });
+                  setChat([]);
+                  toast.success("Chat history cleared!");
+                } catch (err) {
+                  console.error(err);
+                  toast.error("Failed to clear chat history.");
+                }
+              }}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "none",
+                background: "#ef4444",
+                color: "#ffffff",
+                fontSize: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        autoClose: 5000,
+        closeOnClick: false,
+        draggable: false,
+        position: "top-center",
+      }
+    );
   };
 
   useEffect(() => {

@@ -161,7 +161,7 @@ export default function PatientNoteCard({ isDedicatedPage = false }) {
             <div className="pnc-kpi-divider" />
             <div className="pnc-kpi-item">
               <span className="pnc-kpi-val">{stats.docCount}</span>
-              <span className="pnc-kpi-lbl">Physicians</span>
+              <span className="pnc-kpi-lbl">Doctors</span>
             </div>
             <div className="pnc-kpi-divider" />
             <div className="pnc-kpi-item">
@@ -326,7 +326,7 @@ export default function PatientNoteCard({ isDedicatedPage = false }) {
                 </div>
                 <div>
                   <div className="pnc-sheet-title-badge">OFFICIAL CONSULTATION RECORD</div>
-                  <h3 className="pnc-sheet-title">Physician Consultation Summary</h3>
+                  <h3 className="pnc-sheet-title">Doctor Consultation Summary</h3>
                 </div>
               </div>
               <div className="pnc-sheet-header-actions">

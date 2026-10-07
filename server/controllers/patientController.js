@@ -250,3 +250,54 @@ export const getPatientProfile = async (req, res) => {
 
   }
 };
+
+// UPDATE LOGGED IN PATIENT PROFILE
+export const updatePatientProfile = async (req, res) => {
+  try {
+    const userId = Number(req.headers.userid);
+    const { name, age, gender, contact, bloodGroup, medicalNotes } = req.body;
+
+    const existingPatient = await prisma.patient.findUnique({
+      where: { userId },
+      include: { user: true }
+    });
+
+    if (!existingPatient) {
+      return res.status(404).json({ error: "Patient record not found" });
+    }
+
+    const updated = await prisma.patient.update({
+      where: { userId },
+      data: {
+        name: name !== undefined && name !== "" ? name : existingPatient.name,
+        age: age !== undefined && age !== "" ? Number(age) : existingPatient.age,
+        gender: gender !== undefined && gender !== "" ? gender : existingPatient.gender,
+        contact: contact !== undefined && contact !== "" ? contact : existingPatient.contact,
+        bloodGroup: bloodGroup !== undefined ? (bloodGroup || null) : existingPatient.bloodGroup,
+        medicalNotes: medicalNotes !== undefined ? (medicalNotes || null) : existingPatient.medicalNotes,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    });
+
+    // Also update User.name if name changed
+    if (name && name.trim()) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { name: name.trim() }
+      });
+    }
+
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error("UPDATE PATIENT PROFILE ERROR:", error);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+};

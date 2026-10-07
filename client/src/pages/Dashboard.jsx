@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import "../styles/dashboard.css";
-import { FaUserInjured, FaUserMd, FaCalendarCheck, FaUserCircle, FaHeartbeat, FaChartLine } from "react-icons/fa";
+import "../styles/patientWebsite.css";
+import { 
+  FaUserInjured, FaUserMd, FaCalendarCheck, FaUserCircle, FaHeartbeat, FaChartLine,
+  FaSearch, FaMapMarkerAlt, FaNotesMedical, FaStar, FaPhoneAlt, FaCheckCircle,
+  FaTooth, FaBone, FaBrain, FaCapsules, FaStethoscope, FaUserFriends, FaRegCheckCircle,
+  FaThermometerHalf, FaBaby, FaPumpSoap, FaFemale, FaShieldAlt, FaBolt, FaComments,
+  FaLock, FaBirthdayCake, FaVenusMars, FaUser, FaEnvelope, FaTint, FaIdCard, FaEdit
+} from "react-icons/fa";
 import { 
   BsShieldLock, 
   BsPeople, 
@@ -9,14 +16,20 @@ import {
   BsActivity,
   BsCheckCircleFill,
   BsClockHistory,
-  BsArrowRepeat
+  BsArrowRepeat,
+  BsFileEarmarkMedical,
+  BsShieldCheck,
+  BsChatSquareHeart
 } from "react-icons/bs";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import API from "../api";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const role = user?.role || "patient";
+  const [patientSearch, setPatientSearch] = useState("");
 
   const [metrics, setMetrics] = useState({
     patients: 0,
@@ -53,6 +66,67 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [patientProfile, setPatientProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Patient Quick Edit Profile Modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    age: "",
+    gender: "",
+    contact: "",
+    bloodGroup: "",
+    medicalNotes: ""
+  });
+
+  const openEditModal = () => {
+    setProfileForm({
+      name: patientProfile?.name || user?.name || "",
+      age: patientProfile?.age !== undefined && patientProfile?.age !== null ? String(patientProfile.age) : "",
+      gender: patientProfile?.gender || "",
+      contact: patientProfile?.contact || "",
+      bloodGroup: patientProfile?.bloodGroup || "",
+      medicalNotes: patientProfile?.medicalNotes || "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e?.preventDefault();
+    try {
+      setProfileSaving(true);
+      const res = await API.put(
+        "/patients/profile",
+        {
+          name: profileForm.name.trim(),
+          age: profileForm.age ? Number(profileForm.age) : patientProfile?.age,
+          gender: profileForm.gender,
+          contact: profileForm.contact.trim(),
+          bloodGroup: profileForm.bloodGroup || null,
+          medicalNotes: profileForm.medicalNotes.trim() || null,
+        },
+        {
+          headers: {
+            role: user.role,
+            userid: user.id,
+          },
+        }
+      );
+
+      setPatientProfile(res.data);
+      if (profileForm.name.trim() && user.name !== profileForm.name.trim()) {
+        const updatedUser = { ...user, name: profileForm.name.trim() };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      }
+      setIsEditModalOpen(false);
+      toast.success("Profile updated successfully!");
+    } catch (err) {
+      console.error("Profile save error:", err);
+      toast.error(err.response?.data?.error || "Failed to update profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   useEffect(() => {
     fetchDashboardMetrics();
@@ -254,7 +328,7 @@ export default function Dashboard() {
       case "admin":
         return "System Administrator";
       case "doctor":
-        return "Attending Physician";
+        return "Attending Doctor";
       case "patient":
         return "Registered Patient";
       default:
@@ -324,6 +398,802 @@ export default function Dashboard() {
     return seg;
   });
 
+  if (role === "patient") {
+    const handleSearchSubmit = (e) => {
+      e?.preventDefault();
+      if (patientSearch.trim()) {
+        navigate(`/patient-doctors?search=${encodeURIComponent(patientSearch.trim())}`);
+      } else {
+        navigate("/patient-doctors");
+      }
+    };
+
+    return (
+      <div className="patient-website-home">
+        {/* ── 1. PRACTO & NEXOPD SIGNATURE HERO & DUAL SEARCH BAR ── */}
+        <section className="practo-hero-banner">
+          <div className="practo-hero-inner">
+            <div className="hero-eyebrow-pill">
+              <span className="hero-sparkle-dot"></span>
+              <span>Smart &amp; Reliable Healthcare</span>
+            </div>
+
+            <h1 className="practo-hero-heading">
+              Your Home for Health, {user?.name || "Patient"}
+            </h1>
+            <p className="practo-hero-subheading">
+              Find and book confirmed in-clinic appointments or consult top verified doctors online
+            </p>
+
+            {/* Dual Search Bar */}
+            <form className="practo-search-container" onSubmit={handleSearchSubmit}>
+              <div className="practo-search-location">
+                <FaMapMarkerAlt />
+                <span>HealthRay Central Hub</span>
+              </div>
+              <div className="practo-search-doctor">
+                <FaSearch />
+                <input
+                  type="text"
+                  className="practo-search-input"
+                  placeholder="Search doctors, specialties (e.g. Cardiologist, Orthopedic)..."
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="practo-search-submit-btn">
+                <FaSearch style={{ marginRight: "6px", fontSize: "13px" }} />
+                Find Doctors
+              </button>
+            </form>
+
+            {/* Popular / Trending Health Searches */}
+            <div className="practo-trending-pills">
+              <span>Popular Searches:</span>
+              <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=General")}>
+                <FaThermometerHalf style={{ color: "#ef4444" }} /> Fever &amp; Cold
+              </span>
+              <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=Cardio")}>
+                <FaHeartbeat style={{ color: "#e11d48" }} /> Heart Checkup
+              </span>
+              <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=Pedia")}>
+                <FaBaby style={{ color: "#f59e0b" }} /> Pediatric Care
+              </span>
+              <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=Derma")}>
+                <FaPumpSoap style={{ color: "#ec4899" }} /> Skin &amp; Acne
+              </span>
+              <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=Ortho")}>
+                <FaBone style={{ color: "#10b981" }} /> Joint &amp; Bone
+              </span>
+              <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=Neuro")}>
+                <FaBrain style={{ color: "#8b5cf6" }} /> Migraine &amp; Nerve
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 2. TOP CORE SERVICES (SPACIOUS 80PX RHYTHM) ── */}
+        <section className="home-section-spacious">
+          <div className="patient-web-container">
+            <div className="home-section-header">
+              <span className="home-section-eyebrow">HEALTHRAY SERVICES</span>
+              <h2 className="home-section-title">Comprehensive Healthcare Services</h2>
+              <p className="home-section-desc">
+                Consult top specialists online or book confirmed in-clinic appointments with zero wait time
+              </p>
+            </div>
+
+            <div className="practo-top-services-grid">
+              <Link to="/patient-doctors" className="practo-service-card">
+                <div>
+                  <div className="practo-card-visual visual-cyan">
+                    <FaStethoscope />
+                  </div>
+                  <div className="practo-service-info">
+                    <h3>Online Doctor Consultation</h3>
+                    <p>Get expert advice from certified doctors anytime, from the comfort of home.</p>
+                  </div>
+                </div>
+                <div>
+                  <span className="practo-card-tag">Verified specialists</span>
+                  <span className="practo-card-action">
+                    Consult Now <BsArrowRight />
+                  </span>
+                </div>
+              </Link>
+
+              <Link to="/patient-doctors" className="practo-service-card">
+                <div>
+                  <div className="practo-card-visual visual-teal">
+                    <FaUserMd />
+                  </div>
+                  <div className="practo-service-info">
+                    <h3>Find Doctors Near You</h3>
+                    <p>Guaranteed in-clinic consultation slots with top clinical specialists.</p>
+                  </div>
+                </div>
+                <div>
+                  <span className="practo-card-tag">{metrics.doctors} Verified Specialists</span>
+                  <span className="practo-card-action">
+                    Book In-Clinic <BsArrowRight />
+                  </span>
+                </div>
+              </Link>
+
+              <Link to="/patient-notes" className="practo-service-card">
+                <div>
+                  <div className="practo-card-visual visual-purple">
+                    <BsFileEarmarkMedical />
+                  </div>
+                  <div className="practo-service-info">
+                    <h3>Doctor Notes &amp; Rx</h3>
+                    <p>100% digital medical notes, prescriptions, and official doctor advice.</p>
+                  </div>
+                </div>
+                <div>
+                  <span className="practo-card-tag">Digital Health Vault</span>
+                  <span className="practo-card-action">
+                    View Notes <BsArrowRight />
+                  </span>
+                </div>
+              </Link>
+
+              <Link to="/patient-profile" className="practo-service-card">
+                <div>
+                  <div className="practo-card-visual visual-amber">
+                    <BsShieldCheck />
+                  </div>
+                  <div className="practo-service-info">
+                    <h3>Personal Health Records</h3>
+                    <p>Manage your blood group, age, emergency contact, and triage vitals.</p>
+                  </div>
+                </div>
+                <div>
+                  <span className="practo-card-tag">256-Bit Encrypted</span>
+                  <span className="practo-card-action">
+                    Open EHR <BsArrowRight />
+                  </span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 3. HEALTH CONCERNS SECTION (SPACIOUS SOFT BG) ── */}
+        <section className="home-section-spacious home-section-bg-soft">
+          <div className="patient-web-container">
+            <div className="home-section-header">
+              <span className="home-section-eyebrow">COMMON HEALTH ISSUES</span>
+              <h2 className="home-section-title">Consult Top Doctors Online for Any Health Concern</h2>
+              <p className="home-section-desc">
+                Private online consultations with verified doctors in all clinical specialties
+              </p>
+            </div>
+
+            <div className="practo-concerns-grid">
+              <Link to="/patient-doctors?search=Gyne" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#fff1f2", color: "#e11d48" }}>
+                  <FaFemale style={{ fontSize: "28px" }} />
+                </div>
+                <span className="concern-title">Period doubts or Pregnancy</span>
+                <span className="concern-specialist">Gynecologist</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+
+              <Link to="/patient-doctors?search=Derma" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#fdf2f8", color: "#ec4899" }}>
+                  <FaPumpSoap style={{ fontSize: "26px" }} />
+                </div>
+                <span className="concern-title">Acne, pimple or skin issues</span>
+                <span className="concern-specialist">Dermatologist</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+
+              <Link to="/patient-doctors?search=General" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#eff6ff", color: "#2563eb" }}>
+                  <FaThermometerHalf style={{ fontSize: "26px" }} />
+                </div>
+                <span className="concern-title">Cold, cough or fever</span>
+                <span className="concern-specialist">General Doctor</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+
+              <Link to="/patient-doctors?search=Pedia" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#fffbeb", color: "#d97706" }}>
+                  <FaBaby style={{ fontSize: "26px" }} />
+                </div>
+                <span className="concern-title">Child not feeling well</span>
+                <span className="concern-specialist">Pediatrician</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+
+              <Link to="/patient-doctors?search=Psych" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
+                  <FaBrain style={{ fontSize: "26px" }} />
+                </div>
+                <span className="concern-title">Depression or anxiety</span>
+                <span className="concern-specialist">Mental Health Specialist</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+
+              <Link to="/patient-doctors?search=Dental" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#ecfdf5", color: "#059669" }}>
+                  <FaTooth style={{ fontSize: "26px" }} />
+                </div>
+                <span className="concern-title">Toothache &amp; cavity</span>
+                <span className="concern-specialist">Dentist / Dental Surgeon</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+
+              <Link to="/patient-doctors?search=Cardio" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#fef2f2", color: "#dc2626" }}>
+                  <FaHeartbeat style={{ fontSize: "28px" }} />
+                </div>
+                <span className="concern-title">Chest pain or BP issues</span>
+                <span className="concern-specialist">Cardiologist</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+
+              <Link to="/patient-doctors?search=Ortho" className="practo-concern-card">
+                <div className="concern-avatar-circle" style={{ background: "#f0fdf4", color: "#16a34a" }}>
+                  <FaBone style={{ fontSize: "26px" }} />
+                </div>
+                <span className="concern-title">Joint pain or bone injury</span>
+                <span className="concern-specialist">Orthopedist</span>
+                <span className="concern-cta-btn">CONSULT NOW →</span>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 4. SPECIALTY IN-CLINIC APPOINTMENTS ── */}
+        <section className="home-section-spacious">
+          <div className="patient-web-container">
+            <div className="home-section-header">
+              <span className="home-section-eyebrow">IN-CLINIC CARE</span>
+              <h2 className="home-section-title">Book an Appointment for an In-Clinic Consultation</h2>
+              <p className="home-section-desc">
+                Find experienced doctors across all specialties in the HealthRay network with confirmed time slots
+              </p>
+            </div>
+
+            <div className="practo-specialties-container">
+              <div className="practo-specialties-grid">
+                <Link to="/patient-doctors" className="practo-spec-card">
+                  <div className="spec-icon-box" style={{ background: "#eff6ff", color: "#0284c7" }}>
+                    <FaStethoscope style={{ fontSize: "24px" }} />
+                  </div>
+                  <div className="spec-info">
+                    <h4>General Doctor</h4>
+                    <p>Cold, cough, fever, diabetes management &amp; routine checkups</p>
+                  </div>
+                </Link>
+
+                <Link to="/patient-doctors" className="practo-spec-card">
+                  <div className="spec-icon-box" style={{ background: "#fff1f2", color: "#e11d48" }}>
+                    <FaHeartbeat style={{ fontSize: "24px" }} />
+                  </div>
+                  <div className="spec-info">
+                    <h4>Cardiologist</h4>
+                    <p>Heart wellness, hypertension, ECG evaluation &amp; lipid care</p>
+                  </div>
+                </Link>
+
+                <Link to="/patient-doctors" className="practo-spec-card">
+                  <div className="spec-icon-box" style={{ background: "#fffbeb", color: "#d97706" }}>
+                    <FaBaby style={{ fontSize: "24px" }} />
+                  </div>
+                  <div className="spec-info">
+                    <h4>Pediatrician</h4>
+                    <p>Infant growth, newborn checks, vaccination &amp; childhood illnesses</p>
+                  </div>
+                </Link>
+
+                <Link to="/patient-doctors" className="practo-spec-card">
+                  <div className="spec-icon-box" style={{ background: "#fdf2f8", color: "#db2777" }}>
+                    <FaPumpSoap style={{ fontSize: "24px" }} />
+                  </div>
+                  <div className="spec-info">
+                    <h4>Dermatologist</h4>
+                    <p>Acne, eczema, hair loss, skin allergy relief &amp; cosmetic care</p>
+                  </div>
+                </Link>
+
+                <Link to="/patient-doctors" className="practo-spec-card">
+                  <div className="spec-icon-box" style={{ background: "#f0fdf4", color: "#16a34a" }}>
+                    <FaBone style={{ fontSize: "24px" }} />
+                  </div>
+                  <div className="spec-info">
+                    <h4>Orthopedist</h4>
+                    <p>Knee &amp; back pain, fracture healing, arthritis &amp; spine care</p>
+                  </div>
+                </Link>
+
+                <Link to="/patient-doctors" className="practo-spec-card">
+                  <div className="spec-icon-box" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
+                    <FaBrain style={{ fontSize: "24px" }} />
+                  </div>
+                  <div className="spec-info">
+                    <h4>Neurologist</h4>
+                    <p>Migraine, nerve disorders, memory assessment &amp; stroke therapy</p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 5. PATIENT TELEMETRY & CLINICAL VITALS SNAPSHOT ── */}
+        <section className="home-section-spacious home-section-bg-soft">
+          <div className="patient-web-container">
+            <div className="home-section-header">
+              <span className="home-section-eyebrow">MY HEALTH RECORDS & ACTIVITY</span>
+              <h2 className="home-section-title">Your Health Activity & Clinical Vitals</h2>
+              <p className="home-section-desc">
+                Track your consultation frequency and view your verified electronic medical profile
+              </p>
+            </div>
+
+            <div className="practo-dashboard-insights">
+              {/* Trend Graph */}
+              <div className="practo-chart-card">
+                <div className="practo-chart-card-header">
+                  <div className="practo-chart-title">
+                    <h3>
+                      <FaChartLine style={{ color: "#14bef0" }} />
+                      <span>My Consultation Activity Trend</span>
+                    </h3>
+                    <p>Aggregated timeline of your appointments with HealthRay doctors</p>
+                  </div>
+                  <div className="chart-filters">
+                    <button
+                      type="button"
+                      className={`chart-filter-btn ${activeRange === "week" ? "active" : ""}`}
+                      onClick={() => setActiveRange("week")}
+                    >
+                      7 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={`chart-filter-btn ${activeRange === "month" ? "active" : ""}`}
+                      onClick={() => setActiveRange("month")}
+                    >
+                      4 Weeks
+                    </button>
+                  </div>
+                </div>
+
+                <div className="svg-chart-container">
+                  <svg
+                    className="interactive-area-svg"
+                    viewBox={`0 0 ${width} ${height}`}
+                    preserveAspectRatio="none"
+                  >
+                    <defs>
+                      <linearGradient id="chartGradientPracto" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#14bef0" stopOpacity="0.35" />
+                        <stop offset="100%" stopColor="#14bef0" stopOpacity="0.01" />
+                      </linearGradient>
+                    </defs>
+
+                    <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} className="svg-grid-line" />
+                    <line x1={paddingX} y1={height / 2} x2={width - paddingX} y2={height / 2} className="svg-grid-line" />
+                    <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} className="svg-grid-line" />
+
+                    <path d={areaPath} fill="url(#chartGradientPracto)" />
+                    <path d={linePath} fill="none" stroke="#14bef0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+                    {points.map((pt, i) => (
+                      <g
+                        key={i}
+                        className="chart-point-group"
+                        onMouseEnter={() => setHoveredPoint(pt)}
+                        onMouseLeave={() => setHoveredPoint(null)}
+                      >
+                        <circle cx={pt.x} cy={pt.y} r={hoveredPoint?.label === pt.label ? 6 : 4} className="chart-point" />
+                        <text x={pt.x} y={height - 8} className="svg-axis-text">
+                          {pt.label}
+                        </text>
+                        {hoveredPoint?.label === pt.label && (
+                          <g>
+                            <rect
+                              x={pt.x - 24}
+                              y={pt.y - 30}
+                              width="48"
+                              height="20"
+                              rx="4"
+                              fill="#1e293b"
+                            />
+                            <text
+                              x={pt.x}
+                              y={pt.y - 16}
+                              fill="#ffffff"
+                              fontSize="11"
+                              fontWeight="700"
+                              textAnchor="middle"
+                            >
+                              {pt.value} appt{pt.value !== 1 ? "s" : ""}
+                            </text>
+                          </g>
+                        )}
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+              </div>
+
+              {/* Dynamic Vitals Snapshot (No Fake Static Fallbacks!) */}
+              <div className="practo-vitals-card">
+                <div className="practo-chart-card-header">
+                  <div className="practo-chart-title">
+                    <h3>
+                      <BsActivity style={{ color: "#10b981" }} />
+                      <span>Clinical Profile & Vitals</span>
+                    </h3>
+                    <p>Verified electronic health records</p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={openEditModal}
+                      className="practo-edit-profile-btn"
+                      title="Quick edit your patient profile and blood group"
+                    >
+                      <FaEdit /> Edit Profile
+                    </button>
+                    <Link
+                      to="/patient-profile"
+                      className="practo-full-profile-link"
+                      title="Open full Electronic Health Record"
+                    >
+                      Full EHR →
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="practo-vitals-list">
+                  <div className="practo-vital-row">
+                    <span className="practo-vital-label">
+                      <FaUser style={{ color: "#0284c7", fontSize: "14px" }} /> Full Name
+                    </span>
+                    <span className="practo-vital-value">
+                      {patientProfile?.name || user?.name || "Patient"}
+                    </span>
+                  </div>
+
+                  <div className="practo-vital-row">
+                    <span className="practo-vital-label">
+                      <FaBirthdayCake style={{ color: "#f59e0b", fontSize: "14px" }} /> Age
+                    </span>
+                    <span className="practo-vital-value">
+                      {patientProfile?.age ? `${patientProfile.age} Years` : "Not Provided"}
+                    </span>
+                  </div>
+
+                  <div className="practo-vital-row">
+                    <span className="practo-vital-label">
+                      <FaVenusMars style={{ color: "#8b5cf6", fontSize: "14px" }} /> Biological Sex
+                    </span>
+                    <span className="practo-vital-value">
+                      {patientProfile?.gender || "Not Provided"}
+                    </span>
+                  </div>
+
+                  <div className="practo-vital-row">
+                    <span className="practo-vital-label">
+                      <FaPhoneAlt style={{ color: "#10b981", fontSize: "14px" }} /> Registered Phone
+                    </span>
+                    <span className="practo-vital-value">
+                      {patientProfile?.contact || "Not Provided"}
+                    </span>
+                  </div>
+
+                  <div className="practo-vital-row">
+                    <span className="practo-vital-label">
+                      <FaEnvelope style={{ color: "#64748b", fontSize: "14px" }} /> Email Address
+                    </span>
+                    <span className="practo-vital-value" style={{ fontSize: "13px", color: "#475569" }}>
+                      {user?.email || patientProfile?.user?.email || "Not Provided"}
+                    </span>
+                  </div>
+
+                  <div className="practo-vital-row">
+                    <span className="practo-vital-label">
+                      <FaTint style={{ color: "#e11d48", fontSize: "14px" }} /> Blood Group
+                    </span>
+                    <span className="practo-vital-value">
+                      {patientProfile?.bloodGroup ? (
+                        <span style={{ color: "#e11d48", fontWeight: "800", background: "#ffe4e6", padding: "3px 10px", borderRadius: "6px" }}>
+                          {patientProfile.bloodGroup}
+                        </span>
+                      ) : (
+                        <span
+                          onClick={openEditModal}
+                          style={{
+                            color: "#0284c7",
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            fontSize: "13px",
+                            fontWeight: "600"
+                          }}
+                        >
+                          Not Set (Click to Add)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="practo-vital-row">
+                    <span className="practo-vital-label">
+                      <FaIdCard style={{ color: "#0284c7", fontSize: "14px" }} /> Patient ID
+                    </span>
+                    <span className="practo-vital-value" style={{ color: "#0284c7" }}>
+                      #PAT-{patientProfile?.id || user?.id || "1"}
+                    </span>
+                  </div>
+
+                  {patientProfile?.medicalNotes && (
+                    <div className="practo-vital-row">
+                      <span className="practo-vital-label">
+                        <FaNotesMedical style={{ color: "#0d9488", fontSize: "14px" }} /> Medical Notes
+                      </span>
+                      <span className="practo-vital-value" style={{ fontSize: "13px", maxWidth: "60%", textAlign: "right" }}>
+                        {patientProfile.medicalNotes}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 6. PRACTO & NEXOPD TRUST GUARANTEE BANNER ── */}
+        <section className="home-section-spacious">
+          <div className="patient-web-container">
+            <div className="practo-guarantee-banner">
+              <div className="practo-guarantee-header">
+                <h2>The HealthRay Care Guarantee</h2>
+                <p>Enterprise medical quality standards for every patient consultation</p>
+              </div>
+
+              <div className="practo-guarantee-grid">
+                <div className="practo-guarantee-item">
+                  <div className="guarantee-icon-wrapper shield">
+                    <FaShieldAlt />
+                  </div>
+                  <h4>100% Verified Doctors</h4>
+                  <p>Every Doctor undergoes clinical license, degree, and credentials verification.</p>
+                </div>
+
+                <div className="practo-guarantee-item">
+                  <div className="guarantee-icon-wrapper bolt">
+                    <FaBolt />
+                  </div>
+                  <h4>Instant Confirmed Slots</h4>
+                  <p>Guaranteed appointment bookings with zero waiting lines or phone delays.</p>
+                </div>
+
+                <div className="practo-guarantee-item">
+                  <div className="guarantee-icon-wrapper chat">
+                    <FaComments />
+                  </div>
+                  <h4>24/7 Care Coordination</h4>
+                  <p>Always available patient support team to assist with queries and bookings.</p>
+                </div>
+
+                <div className="practo-guarantee-item">
+                  <div className="guarantee-icon-wrapper lock">
+                    <FaLock />
+                  </div>
+                  <h4>100% Safe &amp; Confidential</h4>
+                  <p>256-bit bank-grade encryption to safeguard your private consultation notes.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 7. VERIFIED PATIENT STORIES & REVIEWS ── */}
+        {/* <section className="home-section-spacious home-section-bg-soft">
+          <div className="patient-web-container">
+            <div className="home-section-header">
+              <span className="home-section-eyebrow">PATIENT TESTIMONIALS</span>
+              <h2 className="home-section-title">What Our Patients Say About HealthRay</h2>
+              <p className="home-section-desc">
+                Real experiences from patients who consulted HealthRay specialists
+              </p>
+            </div>
+
+            <div className="practo-stories-grid">
+              <div className="practo-story-card">
+                <div>
+                  <div className="story-stars" style={{ display: "flex", gap: "3px", color: "#f59e0b", marginBottom: "14px" }}>
+                    {[...Array(5)].map((_, i) => (
+                      <FaStar key={i} />
+                    ))}
+                  </div>
+                  <p className="story-quote">
+                    "Booked my consultation with Dr. Sharma within minutes. The consultation notes and prescriptions were instantly accessible in my portal."
+                  </p>
+                </div>
+                <div className="story-author">
+                  <span className="story-name">Anjali Mehta</span>
+                  <span className="story-verified" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                    <BsCheckCircleFill style={{ color: "#10b981", fontSize: "12px" }} /> Verified Patient
+                  </span>
+                </div>
+              </div>
+
+              <div className="practo-story-card">
+                <div>
+                  <div className="story-stars" style={{ display: "flex", gap: "3px", color: "#f59e0b", marginBottom: "14px" }}>
+                    {[...Array(5)].map((_, i) => (
+                      <FaStar key={i} />
+                    ))}
+                  </div>
+                  <p className="story-quote">
+                    "No more waiting in clinic queues. The appointment reminder pinged me on time, and the doctor was extremely attentive and helpful."
+                  </p>
+                </div>
+                <div className="story-author">
+                  <span className="story-name">Rajesh Kumar</span>
+                  <span className="story-verified" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                    <BsCheckCircleFill style={{ color: "#10b981", fontSize: "12px" }} /> Verified Patient
+                  </span>
+                </div>
+              </div>
+
+              <div className="practo-story-card">
+                <div>
+                  <div className="story-stars" style={{ display: "flex", gap: "3px", color: "#f59e0b", marginBottom: "14px" }}>
+                    {[...Array(5)].map((_, i) => (
+                      <FaStar key={i} />
+                    ))}
+                  </div>
+                  <p className="story-quote">
+                    "Consultation notes are organized so cleanly. I can view my medical history and doctor recommendations anytime from my phone."
+                  </p>
+                </div>
+                <div className="story-author">
+                  <span className="story-name">Sneha Patel</span>
+                  <span className="story-verified" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                    <BsCheckCircleFill style={{ color: "#10b981", fontSize: "12px" }} /> Verified Patient
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section> */}
+
+        {/* ── QUICK EDIT PROFILE MODAL ── */}
+        {isEditModalOpen && (
+          <div className="patient-modal-overlay" onClick={() => !profileSaving && setIsEditModalOpen(false)}>
+            <div className="patient-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="patient-modal-header">
+                <div>
+                  <h3>Update Profile & Vitals</h3>
+                  <p>Keep your electronic health record details accurate and up to date</p>
+                </div>
+                <button
+                  type="button"
+                  className="patient-modal-close-btn"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={profileSaving}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveProfile}>
+                <div className="patient-modal-body">
+                  <div className="modal-form-grid">
+                    <div className="modal-form-field">
+                      <label>Full Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                        placeholder="e.g. John Doe"
+                      />
+                    </div>
+
+                    <div className="modal-form-field">
+                      <label>Age (Years) *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="125"
+                        required
+                        value={profileForm.age}
+                        onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })}
+                        placeholder="e.g. 28"
+                      />
+                    </div>
+
+                    <div className="modal-form-field">
+                      <label>Biological Sex *</label>
+                      <select
+                        value={profileForm.gender}
+                        onChange={(e) => setProfileForm({ ...profileForm, gender: e.target.value })}
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="modal-form-field">
+                      <label>Contact Phone *</label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.contact}
+                        onChange={(e) => setProfileForm({ ...profileForm, contact: e.target.value })}
+                        placeholder="e.g. 9876543210"
+                      />
+                    </div>
+
+                    <div className="modal-form-field full-span">
+                      <label>Blood Group</label>
+                      <select
+                        value={profileForm.bloodGroup}
+                        onChange={(e) => setProfileForm({ ...profileForm, bloodGroup: e.target.value })}
+                      >
+                        <option value="">Select Blood Group (Optional)</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                      </select>
+                    </div>
+
+                    <div className="modal-form-field full-span">
+                      <label>Medical History / Allergies / Notes</label>
+                      <textarea
+                        rows={3}
+                        value={profileForm.medicalNotes}
+                        onChange={(e) => setProfileForm({ ...profileForm, medicalNotes: e.target.value })}
+                        placeholder="e.g. Penicillin allergy, mild asthma, diabetic family history..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="patient-modal-footer">
+                  <button
+                    type="button"
+                    className="modal-cancel-btn"
+                    onClick={() => setIsEditModalOpen(false)}
+                    disabled={profileSaving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="modal-save-btn"
+                    disabled={profileSaving}
+                  >
+                    {profileSaving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. DOCTOR & ADMIN VIEW: DASHBOARD WORKSPACE (UNCHANGED)
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="dashboard">
       {/* ── Modern Medical Welcome Hero ── */}
@@ -474,7 +1344,7 @@ export default function Dashboard() {
                   <span className="kpi-badge">Live DB</span>
                 </div>
                 <div className="kpi-value">{metrics.appointments}</div>
-                <div className="kpi-desc">Booked physician appointments</div>
+                <div className="kpi-desc">Booked Doctor appointments</div>
               </div>
             </div>
 

@@ -82,16 +82,24 @@ export const getPatientAppointments = async (req, res) => {
 
     const appointments = await prisma.appointment.findMany({
       where: { patientId: patient.id },
-      select: {
-        doctorId: true,
-        date: true,
-        time: true,
+      include: {
+        doctor: {
+          select: {
+            id: true,
+            name: true,
+            specialty: true,
+            mobile: true,
+            experience: true,
+          },
+        },
+      },
+      orderBy: {
+        date: "desc",
       },
     });
     res.json(appointments);
   } catch (error) {
-    console.log(error);appointmentcontrooler
-    
+    console.log(error);
     res.status(500).json({ error: "Failed to fetch patient appointments" });
   }
 }

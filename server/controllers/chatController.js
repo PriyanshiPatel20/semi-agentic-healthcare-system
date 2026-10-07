@@ -121,33 +121,42 @@ export const chatWithAI = async (req, res) => {
     const specialtyList =
       availableSpecialties.length > 0
         ? availableSpecialties.join(", ")
-        : "General Physician";
+        : "General Doctor";
 
     console.log(`[Chat Controller] Dynamically loaded ${availableSpecialties.length} hospital specialties: [${specialtyList}]`);
 
-    // Model candidate list (prioritizing high-availability fast models)
-    const RETIRED_MODELS = new Set([
-      "gemini-2.5-flash-lite",
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-pro",
-      "gemini-1.0-pro",
-    ]);
+    // Instant fast-path for common greetings
+    const cleanMsg = message.trim().toLowerCase();
+    const isGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|namaste|hola|help)\b/i.test(cleanMsg) && cleanMsg.split(/\s+/).length <= 4;
+    
+    if (isGreeting && (!clientHistory || clientHistory.length === 0)) {
+      const quickReply = "Hello! How can I assist you with your health or medical symptoms today?";
+      if (patientId) {
+        await prisma.chat.create({
+          data: {
+            patientId,
+            message,
+            reply: quickReply,
+          },
+        });
+      }
+      console.log(`⚡ [Chat Controller] Instant greeting resolved in ${Date.now() - startTime}ms`);
+      return res.json({
+        reply: quickReply,
+        isMedical: false,
+        doctor: null,
+      });
+    }
 
+    // Model candidate list (prioritizing ultra-fast models)
     const CANDIDATE_MODELS = [
       process.env.GEMINI_MODEL,
-      "gemini-3.5-flash-lite",
-      "gemini-3.1-flash-lite",
-      "gemini-flash-lite-latest",
       "gemini-3-flash-preview",
-      "gemini-3.5-flash",
-      "gemini-3.7-flash",
-      "gemini-3.8-flash",
       "gemini-3.6-flash",
-      "gemini-flash-latest",
-    ].filter((m) => Boolean(m) && !RETIRED_MODELS.has(m));
+      "gemini-3.7-flash",
+      "gemini-3.5-flash",
+      "gemini-3.8-flash",
+    ].filter(Boolean);
 
     const modelsToTry = [...new Set(CANDIDATE_MODELS)];
     const GEMINI_NATIVE_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -177,7 +186,7 @@ INSTRUCTIONS:
      - Provide brief initial care advice under 30 words.
      - Match the condition to the most appropriate specialty from the hospital's available specialties (${specialtyList}).
      - Set "isMedical" to true.
-   - If the message is a greeting (e.g. "hi", "hello") or unrelated to health/symptoms:
+   - If the message is a greeting or unrelated to health/symptoms:
      - Greet them politely and briefly (under 20 words).
      - Set "isMedical" to false and "specialty" to null.
 
@@ -197,42 +206,21 @@ RETURN ONLY A VALID JSON OBJECT:
         console.log(`🚀 [Chat Controller] [Attempt ${i + 1}/${modelsToTry.length}] Querying model: "${currentModel}"...`);
 
         try {
-          let response;
-          try {
-            response = await axios.post(
-              `${GEMINI_NATIVE_BASE}/${currentModel}:generateContent?key=${apiKey}`,
-              {
-                contents: [{ parts: [{ text: promptText }] }],
-                generationConfig: {
-                  temperature: 0.1,
-                },
+          const response = await axios.post(
+            `${GEMINI_NATIVE_BASE}/${currentModel}:generateContent?key=${apiKey}`,
+            {
+              contents: [{ parts: [{ text: promptText }] }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 500,
+                responseMimeType: "application/json"
               },
-              {
-                headers: { "Content-Type": "application/json" },
-                timeout: 15000,
-              }
-            );
-          } catch (firstErr) {
-            if (firstErr?.response?.status === 503) {
-              console.log(`⏳ [Chat Controller] Temporary 503 on "${currentModel}", retrying once in 400ms...`);
-              await new Promise((r) => setTimeout(r, 400));
-              response = await axios.post(
-                `${GEMINI_NATIVE_BASE}/${currentModel}:generateContent?key=${apiKey}`,
-                {
-                  contents: [{ parts: [{ text: promptText }] }],
-                  generationConfig: {
-                    temperature: 0.1,
-                  },
-                },
-                {
-                  headers: { "Content-Type": "application/json" },
-                  timeout: 15000,
-                }
-              );
-            } else {
-              throw firstErr;
+            },
+            {
+              headers: { "Content-Type": "application/json" },
+              timeout: 4500,
             }
-          }
+          );
 
           const attemptElapsed = Date.now() - attemptStartTime;
           rawContent = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
@@ -264,16 +252,26 @@ RETURN ONLY A VALID JSON OBJECT:
     if (modelSucceeded) {
       try {
         let cleaned = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
+        if (cleaned.includes("{") && !cleaned.includes("}")) {
+          cleaned = cleaned + "\n}";
+        }
         const start = cleaned.indexOf("{");
         const end = cleaned.lastIndexOf("}");
-        if (start !== -1 && end !== -1) {
-          const parsed = JSON.parse(cleaned.substring(start, end + 1));
+        if (start !== -1 && end !== -1 && end >= start) {
+          const jsonStr = cleaned.substring(start, end + 1);
+          const parsed = JSON.parse(jsonStr);
           reply = trimToMaxWords(parsed.reply || reply, 30);
           isMedical = Boolean(parsed.isMedical);
           detectedSpecialty = parsed.specialty || null;
         }
       } catch (e) {
         console.warn("⚠️ [Chat Controller] JSON parse fallback on AI output:", e.message);
+        // Extract specialty if mentioned in text
+        const foundSpec = availableSpecialties.find((s) => new RegExp(`\\b${s}\\b`, "i").test(rawContent));
+        if (foundSpec) {
+          detectedSpecialty = foundSpec;
+          isMedical = true;
+        }
         reply = trimToMaxWords(rawContent || reply, 30);
       }
     } else {
@@ -321,7 +319,7 @@ RETURN ONLY A VALID JSON OBJECT:
         }
       }
 
-      // 3. Fallback to General Physician if available
+      // 3. Fallback to General Doctor if available
       if (!matched) {
         matched = await prisma.doctor.findFirst({
           where: {

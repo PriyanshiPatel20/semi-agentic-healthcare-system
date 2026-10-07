@@ -4,6 +4,7 @@ import "../styles/doctor.css";
 import { useNavigate } from "react-router-dom";
 import { FaUserMd, FaArrowLeft, FaEdit, FaTrash, FaPlus, FaCheck, FaTimes, FaPhone, FaEnvelope, FaBriefcase, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { BsThreeDotsVertical, BsHospital, BsInbox } from "react-icons/bs";
+import { toast } from "react-toastify";
 
 export default function Doctors() {
   const navigate = useNavigate();
@@ -69,11 +70,12 @@ export default function Doctors() {
         headers: { role: getUserRole() },
       });
 
+      toast.success("Doctor created successfully!");
       fetchDoctors();
       resetForm();
       setCurrentPage(1); // reset page
     } catch (error) {
-      alert(error.response?.data?.error || "Failed to create doctor");
+      toast.error(error.response?.data?.error || "Failed to create doctor");
     }
   };
 
@@ -98,28 +100,77 @@ export default function Doctors() {
         headers: { role: getUserRole() },
       });
 
+      toast.success("Doctor updated successfully!");
       fetchDoctors();
       resetForm();
       setCurrentPage(1);
     } catch (error) {
-      alert(error.response?.data?.error || "Failed to update doctor");
+      toast.error(error.response?.data?.error || "Failed to update doctor");
     }
   };
 
   // Delete
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this physician profile?")) return;
+  const handleDelete = (id) => {
+    toast(
+      ({ closeToast }) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <span style={{ fontSize: "13.5px", fontWeight: "600", color: "#1e293b" }}>
+            Are you sure you want to delete this Doctor profile?
+          </span>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+            <button
+              onClick={closeToast}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                background: "#ffffff",
+                color: "#475569",
+                fontSize: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                closeToast();
+                try {
+                  await API.delete(`/doctors/${id}`, {
+                    headers: { role: getUserRole() },
+                  });
 
-    try {
-      await API.delete(`/doctors/${id}`, {
-        headers: { role: getUserRole() },
-      });
-
-      fetchDoctors();
-      setCurrentPage(1);
-    } catch (error) {
-      alert(error.response?.data?.error || "Failed to delete doctor");
-    }
+                  toast.success("Doctor deleted successfully!");
+                  fetchDoctors();
+                  setCurrentPage(1);
+                } catch (error) {
+                  toast.error(error.response?.data?.error || "Failed to delete doctor");
+                }
+              }}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                border: "none",
+                background: "#ef4444",
+                color: "#ffffff",
+                fontSize: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        autoClose: 5000,
+        closeOnClick: false,
+        draggable: false,
+        position: "top-center",
+      }
+    );
   };
 
   // Reset Form
@@ -156,7 +207,7 @@ export default function Doctors() {
       {/* Form Panel */}
       <div className="form">
         <div className="form-group">
-          <label className="form-label">Physician Full Name</label>
+          <label className="form-label">Doctor Full Name</label>
           <input
             placeholder="Dr. Full Name"
             value={form.name}
@@ -253,7 +304,7 @@ export default function Doctors() {
           ) : (
             <button className="add-btn" onClick={handleCreate}>
               <FaPlus />
-              <span>Add Physician</span>
+              <span>Add Doctor</span>
             </button>
           )}
         </div>
@@ -264,14 +315,14 @@ export default function Doctors() {
         {doctors.length === 0 ? (
           <div className="empty">
             <BsInbox size={28} style={{ marginBottom: "8px", opacity: 0.5 }} />
-            <p>No physician profiles recorded</p>
+            <p>No Doctor profiles recorded</p>
           </div>
         ) : (
           <>
             <table>
               <thead>
                 <tr>
-                  <th>Physician</th>
+                  <th>Doctor</th>
                   <th>Clinical Specialty</th>
                   <th>Experience</th>
                   <th>Contact Mobile</th>

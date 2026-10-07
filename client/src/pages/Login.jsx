@@ -4,6 +4,7 @@ import "../styles/auth.css";
 import { BsHospital, BsShieldLock } from "react-icons/bs";
 import { FaLock, FaEnvelope, FaSignInAlt } from "react-icons/fa";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 
 export default function Login() {
   const [errors, setErrors] = useState({});
@@ -31,9 +32,10 @@ export default function Login() {
       const res = await API.post("/auth/login", form);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       setErrors({});
+      toast.success("Login successful!");
       window.location.href = "/dashboard";
     } catch (error) {
-      alert(error.response?.data?.error || "Login failed");
+      toast.error(error.response?.data?.error || "Login failed");
     } finally {
       setLoading(false);
     }

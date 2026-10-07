@@ -4,6 +4,7 @@ import "../styles/appointment.css";
 import { useNavigate } from "react-router-dom";
 import { BsCalendar2Check, BsCalendarCheck, BsClock, BsInbox } from "react-icons/bs";
 import { FaArrowLeft, FaChevronLeft, FaChevronRight, FaUserMd, FaUserInjured } from "react-icons/fa";
+import { toast } from "react-toastify";
 
 export default function Appointments() {
   const navigate = useNavigate();
@@ -111,7 +112,7 @@ export default function Appointments() {
       if (!validate()) return;
 
       if (!user) {
-        alert("Please login first");
+        toast.warning("Please login first");
         return;
       }
 
@@ -119,6 +120,7 @@ export default function Appointments() {
         headers: { role: user.role },
       });
 
+      toast.success("Appointment booked successfully!");
       fetchAppointments();
       setForm({
         patientId: user.role === "patient" ? form.patientId : "",
@@ -129,7 +131,7 @@ export default function Appointments() {
       setErrors({});
     } catch (error) {
       console.log("CREATE APPOINTMENT ERROR:", error);
-      alert(error.response?.data?.error || "Failed to book appointment");
+      toast.error(error.response?.data?.error || "Failed to book appointment");
     }
   };
 
@@ -177,7 +179,7 @@ export default function Appointments() {
 
         <div className="form-group">
           <label className="form-label">
-            <FaUserMd className="label-icon" /> Attending Physician
+            <FaUserMd className="label-icon" /> Attending Doctor
           </label>
           <select
             value={form.doctorId}

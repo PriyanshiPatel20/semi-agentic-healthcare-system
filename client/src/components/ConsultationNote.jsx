@@ -11,6 +11,7 @@ import {
 import { BsFileEarmarkTextFill } from "react-icons/bs";
 import { MdRecordVoiceOver, MdOutlineSummarize } from "react-icons/md";
 import { HiOutlineSparkles } from "react-icons/hi";
+import { toast } from "react-toastify";
 
 // ==========================================
 // STEP DEFINITIONS
@@ -234,7 +235,7 @@ export default function ConsultationNote({ patient }) {
       /\.(mp3|wav|webm|ogg|m4a|aac|mp4)$/i.test(file.name);
 
     if (!validAudio) {
-      alert("Please upload a valid audio file (MP3, WAV, WEBM, OGG, M4A).");
+      toast.warning("Please upload a valid audio file (MP3, WAV, WEBM, OGG, M4A).");
       return;
     }
 
@@ -282,7 +283,7 @@ export default function ConsultationNote({ patient }) {
             console.log(" [AI Note Writer] Combined microphone and tab audio into one stream");
           } else {
             console.warn(" [AI Note Writer] No audio track detected in display media");
-            alert("No audio track detected in the shared screen/tab. Please make sure to check 'Share tab audio' in the browser sharing prompt.");
+            toast.warning("No audio track detected in the shared screen/tab. Please make sure to check 'Share tab audio' in the browser sharing prompt.");
           }
         } catch (err) {
           console.warn(" [AI Note Writer] Display audio recording skipped or denied:", err.message);
@@ -329,7 +330,7 @@ export default function ConsultationNote({ patient }) {
       console.log("[AI Note Writer] Recording started successfully!");
     } catch (err) {
       console.error(" [AI Note Writer] Microphone access error:", err);
-      alert(`Microphone error: ${err.message || "Access denied"}. Please allow microphone permissions in your browser.`);
+      toast.error(`Microphone error: ${err.message || "Access denied"}. Please allow microphone permissions in your browser.`);
     }
   };
 
@@ -357,7 +358,7 @@ export default function ConsultationNote({ patient }) {
   // ── STEP 1 → 2: TRANSCRIBE AUDIO ──
   const transcribeAudio = async () => {
     if (!audioBlob) {
-      alert("No audio recorded or selected yet.");
+      toast.warning("No audio recorded or selected yet.");
       return;
     }
 
@@ -392,6 +393,7 @@ export default function ConsultationNote({ patient }) {
       }
 
       setTranscriptView("cards");
+      toast.success("Audio transcribed successfully!");
       // Move to Step 2 (Review Transcript)
       setCurrentStep(2);
     } catch (err) {
@@ -402,9 +404,7 @@ export default function ConsultationNote({ patient }) {
         response: err.response?.data,
       });
 
-      alert(
-        ` Transcription Error: ${serverMsg}\n\nTip: You can speak clearly for a few seconds, or skip audio and type/edit the transcript manually on Step 2.`
-      );
+      toast.error(`Transcription Error: ${serverMsg}. You can type the transcript manually on Step 2.`);
       // Still allow doctor to proceed to Step 2 to type manually
       setCurrentStep(2);
     } finally {
@@ -648,7 +648,7 @@ export default function ConsultationNote({ patient }) {
       || (dialogueTurns && dialogueTurns.length > 0 ? serializeDialogue(dialogueTurns) : "");
 
     if (!textToFormat) {
-      alert("Please enter or transcribe a consultation dialogue before formatting.");
+      toast.warning("Please enter or transcribe a consultation dialogue before formatting.");
       return;
     }
 
@@ -677,6 +677,7 @@ export default function ConsultationNote({ patient }) {
         setTranscript(res.data.formattedTranscript);
       }
       setTranscriptView("cards");
+      toast.success("Dialogue formatted successfully!");
     } catch (err) {
       console.warn("⚠️ [ConsultationNote] Format API error (kept local separation):", err);
     } finally {
@@ -693,7 +694,7 @@ export default function ConsultationNote({ patient }) {
   // ── STEP 2 → 3: GENERATE SOAP NOTE ──
   const generateSOAPNote = async () => {
     if (!transcript.trim()) {
-      alert("Please enter or transcribe a consultation dialogue before generating the note.");
+      toast.warning("Please enter or transcribe a consultation dialogue before generating the note.");
       return;
     }
 
@@ -723,6 +724,7 @@ export default function ConsultationNote({ patient }) {
 
       console.log(" [AI Note Writer] Draft note saved with ID:", dr.data?.note?.id);
       setSavedNoteId(dr.data.note.id);
+      toast.success("SOAP Note generated and draft saved!");
       // Move to Step 3 (Review & Edit SOAP Note)
       setCurrentStep(3);
     } catch (err) {
@@ -734,7 +736,7 @@ export default function ConsultationNote({ patient }) {
         serverMsg,
         response: err.response?.data,
       });
-      alert(`⚠️ Clinical Note Generation Failed: ${serverMsg}`);
+      toast.error(`Clinical Note Generation Failed: ${serverMsg}`);
     } finally {
       setLoading(false);
       setLoadingMsg("");
@@ -748,7 +750,7 @@ export default function ConsultationNote({ patient }) {
   // ── STEP 3 → 4: APPROVE & SAVE NOTE ──
   const approveNote = async () => {
     if (!savedNoteId) {
-      alert("No draft note ID found. Please regenerate or re-save the draft.");
+      toast.warning("No draft note ID found. Please regenerate or re-save the draft.");
       return;
     }
 
@@ -765,6 +767,7 @@ export default function ConsultationNote({ patient }) {
 
       console.log("✅ [AI Note Writer] Consultation note approved and saved:", res.data);
       setApproved(true);
+      toast.success("Consultation note approved and saved successfully!");
       setCurrentStep(4);
       fetchPastNotes();
     } catch (err) {
@@ -774,7 +777,7 @@ export default function ConsultationNote({ patient }) {
         serverMsg,
         response: err.response?.data,
       });
-      alert(`Failed to approve consultation note: ${serverMsg}`);
+      toast.error(`Failed to approve consultation note: ${serverMsg}`);
     } finally {
       setLoading(false);
       setLoadingMsg("");
@@ -1144,7 +1147,7 @@ export default function ConsultationNote({ patient }) {
                           >
                             <FaPlus size={10} /> <FaUser /> Patient Says
                           </button>
-                          <button
+                          {/* <button
                             type="button"
                             className="speaker-badge-btn speaker-btn-ai"
                             onClick={handleAutoFormatDialogue}
@@ -1152,7 +1155,7 @@ export default function ConsultationNote({ patient }) {
                             title="Let AI identify and separate Doctor vs Patient statements"
                           >
                             <HiOutlineSparkles /> Re-identify with AI
-                          </button>
+                          </button> */}
                         </div>
                       </div>
 
