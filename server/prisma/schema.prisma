@@ -54,6 +54,13 @@ model Doctor {
   specialty  String
   experience String?
   mobile     String?
+  clinicName String?
+  city       String?
+  state      String?
+  address    String?
+  timing     String?
+  rating     Float?  @default(4.8)
+  image      String?
 
   userId            Int?          @unique
   user              User?         @relation(fields: [userId], references: [id])

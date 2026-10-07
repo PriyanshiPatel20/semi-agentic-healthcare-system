@@ -275,6 +275,51 @@ export default function Doctors() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">Clinic / Hospital Name</label>
+          <input
+            placeholder="e.g. ABC CLINIC"
+            value={form.clinicName || ""}
+            onChange={(e) => setForm({ ...form, clinicName: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">City</label>
+          <input
+            placeholder="e.g. Betul or Ahmedabad"
+            value={form.city || ""}
+            onChange={(e) => setForm({ ...form, city: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">State</label>
+          <input
+            placeholder="e.g. Madhya Pradesh"
+            value={form.state || ""}
+            onChange={(e) => setForm({ ...form, state: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Full Address</label>
+          <input
+            placeholder="e.g. Khedi Road, Near Civil Lines"
+            value={form.address || ""}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">OPD Timings</label>
+          <input
+            placeholder="e.g. 09:00 AM - 08:00 PM"
+            value={form.timing || ""}
+            onChange={(e) => setForm({ ...form, timing: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
           <label className="form-label">Direct Mobile</label>
           <input
             placeholder="3425678904"

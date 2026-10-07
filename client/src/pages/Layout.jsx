@@ -349,7 +349,7 @@ export default function Layout() {
 
               <div 
                 className="doctor-user-pill" 
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/doctor-profile")}
                 title={`Doctor Practice Profile: Dr. ${user?.name}`}
               >
                 <div className="doctor-user-avatar">
@@ -501,6 +501,10 @@ export default function Layout() {
            {user?.role === "patient" && (
             <>
               <div className="nav-group-label">Patient Desk</div>
+              <NavLink to="/find-clinics" className={({ isActive }) => isActive ? "sidebar-link active" : "sidebar-link"}>
+                <BsHospital className="link-icon" />
+                <span>Find Clinics by City</span>
+              </NavLink>
               <NavLink to="/patient-profile" className={({ isActive }) => isActive ? "sidebar-link active" : "sidebar-link"}>
                 <BsShieldLock className="link-icon" />
                 <span>My Health Profile</span>

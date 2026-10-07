@@ -149,31 +149,79 @@ export default function Register() {
 
         {/* DOCTOR FIELDS */}
         {form.role === "doctor" && (
-          <div className="form-grid-three">
-            <div className="form-group">
-              <label className="auth-label">Medical Specialty</label>
-              <input
-                placeholder="e.g. Cardiology, Neurology"
-                value={form.specialty}
-                onChange={e => setForm({ ...form, specialty: e.target.value })}
-              />
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px", marginBottom: "8px" }}>
+            <div className="form-grid-three">
+              <div className="form-group">
+                <label className="auth-label">Medical Specialty</label>
+                <input
+                  placeholder="e.g. Diabetology & Endocrinology"
+                  value={form.specialty || ""}
+                  onChange={e => setForm({ ...form, specialty: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="auth-label">Clinic / Hospital Name</label>
+                <input
+                  placeholder="e.g. ABC CLINIC"
+                  value={form.clinicName || ""}
+                  onChange={e => setForm({ ...form, clinicName: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="auth-label">Experience (Years)</label>
+                <input
+                  placeholder="e.g. 12+"
+                  type="text"
+                  value={form.experience || ""}
+                  onChange={e => setForm({ ...form, experience: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label className="auth-label">Experience (Years)</label>
-              <input
-                placeholder="e.g. 8"
-                type="text"
-                value={form.experience}
-                onChange={e => setForm({ ...form, experience: e.target.value })}
-              />
+
+            <div className="form-grid-three">
+              <div className="form-group">
+                <label className="auth-label">City</label>
+                <input
+                  placeholder="e.g. Betul or Ahmedabad"
+                  value={form.city || ""}
+                  onChange={e => setForm({ ...form, city: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="auth-label">State</label>
+                <input
+                  placeholder="e.g. Madhya Pradesh"
+                  value={form.state || ""}
+                  onChange={e => setForm({ ...form, state: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="auth-label">Direct Mobile</label>
+                <input
+                  placeholder="+91 98765 43210"
+                  value={form.mobile || ""}
+                  onChange={e => setForm({ ...form, mobile: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="form-group">
-              <label className="auth-label">Direct Mobile</label>
-              <input
-                placeholder="Mobile number"
-                value={form.mobile}
-                onChange={e => setForm({ ...form, mobile: e.target.value })}
-              />
+
+            <div className="form-grid-two">
+              <div className="form-group">
+                <label className="auth-label">Full Address</label>
+                <input
+                  placeholder="e.g. Khedi Road, Near Civil Lines"
+                  value={form.address || ""}
+                  onChange={e => setForm({ ...form, address: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="auth-label">OPD Timings</label>
+                <input
+                  placeholder="e.g. 09:00 AM - 08:00 PM"
+                  value={form.timing || ""}
+                  onChange={e => setForm({ ...form, timing: e.target.value })}
+                />
+              </div>
             </div>
           </div>
         )}

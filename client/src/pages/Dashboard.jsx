@@ -20,7 +20,8 @@ import {
   BsArrowRepeat,
   BsFileEarmarkMedical,
   BsShieldCheck,
-  BsChatSquareHeart
+  BsChatSquareHeart,
+  BsHospital
 } from "react-icons/bs";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -474,6 +475,101 @@ export default function Dashboard() {
               <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=Neuro")}>
                 <FaBrain style={{ color: "#8b5cf6" }} /> Migraine &amp; Nerve
               </span>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 2. SEPARATE DESIGN: DEDICATED CLINIC & OPD LOCATION DIRECTORY SECTION ── */}
+        <section style={{ background: "linear-gradient(180deg, #f8fafc 0%, #e0f2fe 100%)", padding: "40px 0", borderBottom: "1px solid #e2e8f0" }}>
+          <div className="patient-web-container">
+            <div style={{
+              background: "#ffffff",
+              border: "1px solid #bae6fd",
+              borderRadius: "24px",
+              padding: "36px",
+              boxShadow: "0 10px 30px rgba(2, 132, 199, 0.08)",
+              display: "grid",
+              gridTemplateColumns: "1fr 320px",
+              gap: "32px",
+              alignItems: "center"
+            }}>
+              <div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#e0f2fe", color: "#0284c7", padding: "4px 14px", borderRadius: "20px", fontSize: "12px", fontWeight: "800", textTransform: "uppercase", marginBottom: "16px" }}>
+                  <BsHospital /> Registered Clinic Directory
+                </div>
+                <h2 style={{ fontSize: "24px", fontWeight: "900", color: "#0f172a", margin: "0 0 10px 0", letterSpacing: "-0.5px" }}>
+                  Find Verified Clinics &amp; OPD Centers by Location
+                </h2>
+                <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 24px 0", lineHeight: "1.6" }}>
+                  Search medical clinics by area location, filter by registered clinical specialties, and check real-time OPD consultation timings.
+                </p>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
+                  <span style={{ fontSize: "12.5px", fontWeight: "800", color: "#475569" }}>Popular Cities:</span>
+                  {["Betul", "Ahmedabad", "Mumbai", "Delhi", "Pune"].map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => navigate(`/find-clinics?search=${encodeURIComponent(city)}`)}
+                      style={{
+                        background: "#f1f5f9",
+                        border: "1px solid #cbd5e1",
+                        color: "#0f172a",
+                        padding: "6px 14px",
+                        borderRadius: "12px",
+                        fontSize: "12.5px",
+                        fontWeight: "700",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      <FaMapMarkerAlt style={{ color: "#0284c7", fontSize: "11px" }} /> {city}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{
+                background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                borderRadius: "20px",
+                padding: "28px",
+                color: "#ffffff",
+                textAlign: "center",
+                boxShadow: "0 10px 25px rgba(2, 132, 199, 0.25)"
+              }}>
+                <div style={{ width: "56px", height: "56px", borderRadius: "18px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", margin: "0 auto 16px auto" }}>
+                  <BsHospital />
+                </div>
+                <h3 style={{ fontSize: "18px", fontWeight: "900", margin: "0 0 8px 0" }}>Explore All Clinics</h3>
+                <p style={{ fontSize: "13px", opacity: 0.9, margin: "0 0 20px 0", lineHeight: "1.5" }}>
+                  View full clinic directory with area addresses, doctor ratings &amp; OPD schedules.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/find-clinics")}
+                  style={{
+                    width: "100%",
+                    background: "#ffffff",
+                    color: "#0284c7",
+                    border: "none",
+                    padding: "12px 20px",
+                    borderRadius: "12px",
+                    fontSize: "14px",
+                    fontWeight: "800",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.1)"
+                  }}
+                >
+                  Find Clinics Now <BsArrowRight />
+                </button>
+              </div>
             </div>
           </div>
         </section>

@@ -4,7 +4,7 @@
   // REGISTER
   export const registerUser = async (req, res) => {
     try {
-      const { name, email, password, role, age, gender, contact, specialty, experience,mobile } = req.body;
+      const { name, email, password, role, age, gender, contact, specialty, experience, mobile, clinicName, city, state, address, timing } = req.body;
 
       const existingUser = await prisma.user.findUnique({
         where: { email }
@@ -42,10 +42,15 @@
         await prisma.doctor.create({
           data: {
             name,
-            specialty,
+            specialty: specialty || "General Medicine",
             userId: user.id,
-            experience,
-            mobile, 
+            experience: experience || "5+",
+            mobile: mobile || contact, 
+            clinicName: clinicName || `${name.replace(/^Dr\.?\s*/i, "")} Clinic`,
+            city: city || "Ahmedabad",
+            state: state || "Gujarat",
+            address: address || "Main Hospital Road",
+            timing: timing || "09:00 AM - 08:00 PM"
           }
         });
       }

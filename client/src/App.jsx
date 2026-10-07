@@ -13,6 +13,8 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PatientProfile from "./pages/PatientProfile";
 import PatientNotesPage from "./pages/PatientNotesPage";
+import FindClinics from "./pages/FindClinics";
+import DoctorProfile from "./pages/DoctorProfile";
 
 function App() {
   return (
@@ -29,9 +31,11 @@ function App() {
           <Route path="/doctors" element={<Doctors />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/patient-doctors" element={<PatientDoctors />} />
+          <Route path="/find-clinics" element={<FindClinics />} />
           <Route path="/patients-details" element={<PatientsDetails />} />
           <Route path="/patient-profile" element={<PatientProfile />} />
           <Route path="/patient-notes" element={<PatientNotesPage />} />
+          <Route path="/doctor-profile" element={<DoctorProfile />} />
         </Route>
       </Routes>
     </BrowserRouter>

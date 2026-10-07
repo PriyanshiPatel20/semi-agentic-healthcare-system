@@ -1,16 +1,18 @@
 import express from "express";
 
 const router = express.Router();
-import { createDoctor, getDoctors, updateDoctor, deleteDoctor } from "../controllers/doctorController.js";
+import { createDoctor, getDoctors, getDoctorProfile, updateDoctor, deleteDoctor } from "../controllers/doctorController.js";
 import { checkRole } from "../middleware/roleMiddleware.js";
 
-
-// Only admin can create doctor (optional rule)
+// Only admin can create doctor
 router.post("/", checkRole(["admin"]), createDoctor);
 
-// Anyone can view doctors
+// View doctors & doctor profile
 router.get("/", getDoctors);
-router.put("/:id", checkRole(["admin"]), updateDoctor);
+router.get("/profile/:userId", getDoctorProfile);
+
+// Admin or Doctor can update profile
+router.put("/:id", checkRole(["admin", "doctor"]), updateDoctor);
 router.delete("/:id", checkRole(["admin"]), deleteDoctor);
 
 export default router;
