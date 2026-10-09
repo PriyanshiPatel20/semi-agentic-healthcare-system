@@ -122,7 +122,7 @@ export default function Layout() {
         {/* Ultra-Modern Glassmorphic Header & Navbar */}
         <header className="practo-navbar">
           <div className="practo-navbar-container">
-            {/* Brand Logo with Glowing Medical Icon */}
+            {/* 1. Left: Brand Logo */}
             <div className="practo-brand" onClick={() => navigate("/dashboard")} title="HealthRay Home">
               <div className="practo-brand-icon-box">
                 <BsHospital />
@@ -137,54 +137,40 @@ export default function Layout() {
               </div>
             </div>
 
-            {/* Smart Clinic / Location Selector */}
-            <div className="practo-location-pill" onClick={() => navigate("/patient-doctors")} title="HealthRay Main Clinic (In-Clinic & Online)">
-              <div className="location-pin-wrap">
-                <FaMapMarkerAlt className="location-icon-pin" />
-                <span className="location-pulse-dot"></span>
+            {/* 2. Center Pillar: Clinic Selector & Navigation Capsule */}
+            <div className="practo-header-center" style={{ display: "flex", alignItems: "center", gap: "16px", margin: "0 auto" }}>
+              <div className="practo-location-pill" onClick={() => navigate("/patient-doctors")} title="HealthRay Main Clinic (In-Clinic & Online)">
+                <div className="location-pin-wrap">
+                  <FaMapMarkerAlt className="location-icon-pin" />
+                  <span className="location-pulse-dot"></span>
+                </div>
+                <div className="location-text-meta">
+                  <span className="location-clinic-name">HealthRay Central Clinic</span>
+                  <span className="location-clinic-sub">Online &amp; In-Clinic Available</span>
+                </div>
               </div>
-              <div className="location-text-meta">
-                <span className="location-clinic-name">HealthRay Central Clinic</span>
-                <span className="location-clinic-sub">Online &amp; In-Clinic Available</span>
-              </div>
+
+              {/* Creative Segmented Nav Capsule */}
+              <nav className="practo-nav-menu">
+                <NavLink 
+                  to="/patient-notes" 
+                  className={({ isActive }) => isActive ? "practo-nav-link active" : "practo-nav-link"}
+                >
+                  <BsFileEarmarkMedical className="nav-icon" />
+                  <span>Consultation Notes</span>
+                </NavLink>
+
+                <NavLink 
+                  to="/patient-profile" 
+                  className={({ isActive }) => isActive ? "practo-nav-link active" : "practo-nav-link"}
+                >
+                  <BsActivity className="nav-icon" />
+                  <span>Health Records</span>
+                </NavLink>
+              </nav>
             </div>
 
-            {/* Creative Segmented Nav Capsule */}
-            <nav className="practo-nav-menu">
-              <NavLink 
-                to="/dashboard" 
-                className={({ isActive }) => isActive ? "practo-nav-link active" : "practo-nav-link"}
-              >
-                <FaUserMd className="nav-icon" />
-                <span>Find Doctors</span>
-              </NavLink>
-
-              <NavLink 
-                to="/patient-doctors" 
-                className={({ isActive }) => isActive ? "practo-nav-link active" : "practo-nav-link"}
-              >
-                <FaStethoscope className="nav-icon" />
-                <span>Consult Doctors</span>
-              </NavLink>
-
-              <NavLink 
-                to="/patient-notes" 
-                className={({ isActive }) => isActive ? "practo-nav-link active" : "practo-nav-link"}
-              >
-                <BsFileEarmarkMedical className="nav-icon" />
-                <span>Consultation Notes</span>
-              </NavLink>
-
-              <NavLink 
-                to="/patient-profile" 
-                className={({ isActive }) => isActive ? "practo-nav-link active" : "practo-nav-link"}
-              >
-                <BsActivity className="nav-icon" />
-                <span>Health Records</span>
-              </NavLink>
-            </nav>
-
-            {/* Right Header User Controls */}
+            {/* 3. Right: Header User Controls */}
             <div className="practo-nav-actions">
               {renderReminderBell(true)}
 
@@ -204,8 +190,6 @@ export default function Layout() {
                   </span>
                 </div>
               </div>
-
-             
             </div>
           </div>
         </header>

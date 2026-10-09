@@ -434,9 +434,14 @@ export default function Dashboard() {
 
             {/* Dual Search Bar */}
             <form className="practo-search-container" onSubmit={handleSearchSubmit}>
-              <div className="practo-search-location">
-                <FaMapMarkerAlt />
-                <span>HealthRay Central Hub</span>
+              <div 
+                className="practo-search-location" 
+                onClick={() => navigate("/patient-doctors?nearMe=true")} 
+                title="Click to find doctors near your location"
+                style={{ cursor: "pointer" }}
+              >
+                <FaMapMarkerAlt style={{ color: "#0284c7" }} />
+                <span> Doctors Near Me</span>
               </div>
               <div className="practo-search-doctor">
                 <FaSearch />
@@ -457,6 +462,9 @@ export default function Dashboard() {
             {/* Popular / Trending Health Searches */}
             <div className="practo-trending-pills">
               <span>Popular Searches:</span>
+              <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?nearMe=true")} style={{ background: "#e0f2fe", border: "1px solid #7dd3fc", color: "#0284c7", fontWeight: "800" }}>
+                <FaMapMarkerAlt style={{ color: "#0284c7" }} /> Doctors Near Me
+              </span>
               <span className="practo-trend-chip" onClick={() => navigate("/patient-doctors?search=General")}>
                 <FaThermometerHalf style={{ color: "#ef4444" }} /> Fever &amp; Cold
               </span>
@@ -657,170 +665,6 @@ export default function Dashboard() {
                   </span>
                 </div>
               </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 3. HEALTH CONCERNS SECTION (SPACIOUS SOFT BG) ── */}
-        <section className="home-section-spacious home-section-bg-soft">
-          <div className="patient-web-container">
-            <div className="home-section-header">
-              <span className="home-section-eyebrow">COMMON HEALTH ISSUES</span>
-              <h2 className="home-section-title">Consult Top Doctors Online for Any Health Concern</h2>
-              <p className="home-section-desc">
-                Private online consultations with verified doctors in all clinical specialties
-              </p>
-            </div>
-
-            <div className="practo-concerns-grid">
-              <Link to="/patient-doctors?search=Gyne" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#fff1f2", color: "#e11d48" }}>
-                  <FaFemale style={{ fontSize: "28px" }} />
-                </div>
-                <span className="concern-title">Period doubts or Pregnancy</span>
-                <span className="concern-specialist">Gynecologist</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-
-              <Link to="/patient-doctors?search=Derma" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#fdf2f8", color: "#ec4899" }}>
-                  <FaPumpSoap style={{ fontSize: "26px" }} />
-                </div>
-                <span className="concern-title">Acne, pimple or skin issues</span>
-                <span className="concern-specialist">Dermatologist</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-
-              <Link to="/patient-doctors?search=General" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#eff6ff", color: "#2563eb" }}>
-                  <FaThermometerHalf style={{ fontSize: "26px" }} />
-                </div>
-                <span className="concern-title">Cold, cough or fever</span>
-                <span className="concern-specialist">General Doctor</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-
-              <Link to="/patient-doctors?search=Pedia" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#fffbeb", color: "#d97706" }}>
-                  <FaBaby style={{ fontSize: "26px" }} />
-                </div>
-                <span className="concern-title">Child not feeling well</span>
-                <span className="concern-specialist">Pediatrician</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-
-              <Link to="/patient-doctors?search=Psych" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
-                  <FaBrain style={{ fontSize: "26px" }} />
-                </div>
-                <span className="concern-title">Depression or anxiety</span>
-                <span className="concern-specialist">Mental Health Specialist</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-
-              <Link to="/patient-doctors?search=Dental" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#ecfdf5", color: "#059669" }}>
-                  <FaTooth style={{ fontSize: "26px" }} />
-                </div>
-                <span className="concern-title">Toothache &amp; cavity</span>
-                <span className="concern-specialist">Dentist / Dental Surgeon</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-
-              <Link to="/patient-doctors?search=Cardio" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#fef2f2", color: "#dc2626" }}>
-                  <FaHeartbeat style={{ fontSize: "28px" }} />
-                </div>
-                <span className="concern-title">Chest pain or BP issues</span>
-                <span className="concern-specialist">Cardiologist</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-
-              <Link to="/patient-doctors?search=Ortho" className="practo-concern-card">
-                <div className="concern-avatar-circle" style={{ background: "#f0fdf4", color: "#16a34a" }}>
-                  <FaBone style={{ fontSize: "26px" }} />
-                </div>
-                <span className="concern-title">Joint pain or bone injury</span>
-                <span className="concern-specialist">Orthopedist</span>
-                <span className="concern-cta-btn">CONSULT NOW →</span>
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 4. SPECIALTY IN-CLINIC APPOINTMENTS ── */}
-        <section className="home-section-spacious">
-          <div className="patient-web-container">
-            <div className="home-section-header">
-              <span className="home-section-eyebrow">IN-CLINIC CARE</span>
-              <h2 className="home-section-title">Book an Appointment for an In-Clinic Consultation</h2>
-              <p className="home-section-desc">
-                Find experienced doctors across all specialties in the HealthRay network with confirmed time slots
-              </p>
-            </div>
-
-            <div className="practo-specialties-container">
-              <div className="practo-specialties-grid">
-                <Link to="/patient-doctors" className="practo-spec-card">
-                  <div className="spec-icon-box" style={{ background: "#eff6ff", color: "#0284c7" }}>
-                    <FaStethoscope style={{ fontSize: "24px" }} />
-                  </div>
-                  <div className="spec-info">
-                    <h4>General Doctor</h4>
-                    <p>Cold, cough, fever, diabetes management &amp; routine checkups</p>
-                  </div>
-                </Link>
-
-                <Link to="/patient-doctors" className="practo-spec-card">
-                  <div className="spec-icon-box" style={{ background: "#fff1f2", color: "#e11d48" }}>
-                    <FaHeartbeat style={{ fontSize: "24px" }} />
-                  </div>
-                  <div className="spec-info">
-                    <h4>Cardiologist</h4>
-                    <p>Heart wellness, hypertension, ECG evaluation &amp; lipid care</p>
-                  </div>
-                </Link>
-
-                <Link to="/patient-doctors" className="practo-spec-card">
-                  <div className="spec-icon-box" style={{ background: "#fffbeb", color: "#d97706" }}>
-                    <FaBaby style={{ fontSize: "24px" }} />
-                  </div>
-                  <div className="spec-info">
-                    <h4>Pediatrician</h4>
-                    <p>Infant growth, newborn checks, vaccination &amp; childhood illnesses</p>
-                  </div>
-                </Link>
-
-                <Link to="/patient-doctors" className="practo-spec-card">
-                  <div className="spec-icon-box" style={{ background: "#fdf2f8", color: "#db2777" }}>
-                    <FaPumpSoap style={{ fontSize: "24px" }} />
-                  </div>
-                  <div className="spec-info">
-                    <h4>Dermatologist</h4>
-                    <p>Acne, eczema, hair loss, skin allergy relief &amp; cosmetic care</p>
-                  </div>
-                </Link>
-
-                <Link to="/patient-doctors" className="practo-spec-card">
-                  <div className="spec-icon-box" style={{ background: "#f0fdf4", color: "#16a34a" }}>
-                    <FaBone style={{ fontSize: "24px" }} />
-                  </div>
-                  <div className="spec-info">
-                    <h4>Orthopedist</h4>
-                    <p>Knee &amp; back pain, fracture healing, arthritis &amp; spine care</p>
-                  </div>
-                </Link>
-
-                <Link to="/patient-doctors" className="practo-spec-card">
-                  <div className="spec-icon-box" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
-                    <FaBrain style={{ fontSize: "24px" }} />
-                  </div>
-                  <div className="spec-info">
-                    <h4>Neurologist</h4>
-                    <p>Migraine, nerve disorders, memory assessment &amp; stroke therapy</p>
-                  </div>
-                </Link>
-              </div>
             </div>
           </div>
         </section>
@@ -1342,7 +1186,7 @@ export default function Dashboard() {
         </section>
 
         {/* ── 2. PRACTO SPECIALTY DEPT QUICK GRID ── */}
-        <div style={{ marginBottom: "36px" }}>
+        {/* <div style={{ marginBottom: "36px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
             <h3 style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: "10px" }}>
               <FaStethoscope style={{ color: "#0284c7" }} />
@@ -1406,7 +1250,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* ── 3. PRACTO PRO & NEXOPD KPI STATS CARDS (MATCHING USER IMAGE 1 EXACTLY) ── */}
         <div className="doctor-kpi-grid">
