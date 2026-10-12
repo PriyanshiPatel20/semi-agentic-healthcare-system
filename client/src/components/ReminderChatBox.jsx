@@ -29,24 +29,27 @@ export default function ReminderChatBox() {
       setReminders(res.data);
 
     } catch (error) {
-
       console.log(error);
+    }
+  };
 
+  const handleDelete = async (id) => {
+    try {
+      await API.delete(`/reminders/${id}`);
+      setReminders((prev) => prev.filter((r) => r.id !== id));
+    } catch (error) {
+      console.error("Failed to delete reminder", error);
     }
   };
 
   useEffect(() => {
-
     fetchReminders();
 
     const interval = setInterval(() => {
-
       fetchReminders();
-
     }, 15000);
 
     return () => clearInterval(interval);
-
   }, []);
 
   return (
@@ -59,40 +62,49 @@ export default function ReminderChatBox() {
       </div>
 
       {open && (
-
         <div className="reminder-chatbox">
-
           <div className="reminder-header">
             Appointment Reminders
           </div>
 
           <div className="reminder-messages">
-
             {reminders.length === 0 ? (
-
               <p>No reminders today</p>
-
             ) : (
-
               reminders.map((r) => (
-
                 <div
                   key={r.id}
                   className="reminder-card"
+                  style={{ position: "relative" }}
                 >
+                  <button
+                    onClick={() => handleDelete(r.id)}
+                    title="Delete reminder"
+                    style={{
+                      position: "absolute",
+                      top: "6px",
+                      right: "8px",
+                      background: "none",
+                      border: "none",
+                      color: "#94a3b8",
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                    }}
+                    onMouseEnter={(e) => (e.target.style.color = "#ef4444")}
+                    onMouseLeave={(e) => (e.target.style.color = "#94a3b8")}
+                  >
+                    ×
+                  </button>
 
-                  <p>{r.message}</p>
+                  <p style={{ paddingRight: "16px" }}>{r.message}</p>
 
                   <small>
-                    Doctor:
-                    {" "}
-                    {r.appointment?.doctor?.name}
+                    Doctor: {r.appointment?.doctor?.name}
                   </small>
-
                 </div>
               ))
             )}
-
           </div>
         </div>
       )}

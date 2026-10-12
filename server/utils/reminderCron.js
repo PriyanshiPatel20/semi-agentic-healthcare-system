@@ -23,6 +23,12 @@ export const processReminders = async () => {
         console.log("[Reminder Processor] Checking appointments for reminders...");
 
         const appointments = await prisma.appointment.findMany({
+            where: {
+                OR: [
+                    { patientReminderSent: false },
+                    { doctorReminderSent: false },
+                ],
+            },
             include: {
                 patient: {
                     include: {
@@ -47,18 +53,24 @@ export const processReminders = async () => {
             // ====================================
             const patientKey = `${appointment.id}-patient`;
 
-            if (!activeProcessingKeys.has(patientKey)) {
-                const existingPatientReminder = await prisma.reminder.findFirst({
-                    where: {
-                        appointmentId: appointment.id,
-                        receiverType: "patient",
-                    },
-                });
+            if (!appointment.patientReminderSent && !activeProcessingKeys.has(patientKey)) {
+                activeProcessingKeys.add(patientKey);
 
-                if (!existingPatientReminder && appointment.patient) {
-                    activeProcessingKeys.add(patientKey);
+                try {
+                    // Mark as processed on Appointment so it will NEVER be re-created if deleted
+                    await prisma.appointment.update({
+                        where: { id: appointment.id },
+                        data: { patientReminderSent: true },
+                    });
 
-                    try {
+                    const existingPatientReminder = await prisma.reminder.findFirst({
+                        where: {
+                            appointmentId: appointment.id,
+                            receiverType: "patient",
+                        },
+                    });
+
+                    if (!existingPatientReminder && appointment.patient) {
                         const patientName = appointment.patient?.name || "Patient";
                         const doctorName = appointment.doctor?.name || "Doctor";
                         const specialty = appointment.doctor?.specialty || "General Healthcare";
@@ -138,11 +150,11 @@ export const processReminders = async () => {
                         }
 
                         console.log(`✅ [Reminder] Created patient reminder for appointment #${appointment.id}`);
-                    } catch (err) {
-                        console.error(`❌ [Reminder] Patient error for appointment #${appointment.id}:`, err.message);
-                    } finally {
-                        activeProcessingKeys.delete(patientKey);
                     }
+                } catch (err) {
+                    console.error(`❌ [Reminder] Patient error for appointment #${appointment.id}:`, err.message);
+                } finally {
+                    activeProcessingKeys.delete(patientKey);
                 }
             }
 
@@ -151,18 +163,24 @@ export const processReminders = async () => {
             // ====================================
             const doctorKey = `${appointment.id}-doctor`;
 
-            if (!activeProcessingKeys.has(doctorKey)) {
-                const existingDoctorReminder = await prisma.reminder.findFirst({
-                    where: {
-                        appointmentId: appointment.id,
-                        receiverType: "doctor",
-                    },
-                });
+            if (!appointment.doctorReminderSent && !activeProcessingKeys.has(doctorKey)) {
+                activeProcessingKeys.add(doctorKey);
 
-                if (!existingDoctorReminder && appointment.doctor) {
-                    activeProcessingKeys.add(doctorKey);
+                try {
+                    // Mark as processed on Appointment so it will NEVER be re-created if deleted
+                    await prisma.appointment.update({
+                        where: { id: appointment.id },
+                        data: { doctorReminderSent: true },
+                    });
 
-                    try {
+                    const existingDoctorReminder = await prisma.reminder.findFirst({
+                        where: {
+                            appointmentId: appointment.id,
+                            receiverType: "doctor",
+                        },
+                    });
+
+                    if (!existingDoctorReminder && appointment.doctor) {
                         const patientName = appointment.patient?.name || "Patient";
                         const doctorName = appointment.doctor?.name || "Doctor";
                         const time = appointment.time || "Scheduled Time";
@@ -241,11 +259,11 @@ export const processReminders = async () => {
                         }
 
                         console.log(`✅ [Reminder] Created doctor reminder for appointment #${appointment.id}`);
-                    } catch (err) {
-                        console.error(`❌ [Reminder] Doctor error for appointment #${appointment.id}:`, err.message);
-                    } finally {
-                        activeProcessingKeys.delete(doctorKey);
                     }
+                } catch (err) {
+                    console.error(`❌ [Reminder] Doctor error for appointment #${appointment.id}:`, err.message);
+                } finally {
+                    activeProcessingKeys.delete(doctorKey);
                 }
             }
         }

@@ -19,6 +19,19 @@ export default function ChatBox() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const cleanText = (text) => {
+    if (!text) return "";
+    if (typeof text !== "string") return String(text);
+    if (text.trim().startsWith('{"reply":') || text.trim().startsWith('{ "reply":') || text.includes('"reply":')) {
+      return text
+        .replace(/^\{\s*"reply"\s*:\s*"/i, "")
+        .replace(/"\s*,?\s*"isMedical".*$/gi, "")
+        .replace(/[\{\}]/g, "")
+        .trim();
+    }
+    return text;
+  };
+
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
@@ -249,7 +262,7 @@ export default function ChatBox() {
           <div className="messages">
             {chat.map((c, i) => (
               <div key={i} className={`msg ${c.type}`}>
-                <p>{c.text}</p>
+                <p>{cleanText(c.text)}</p>
 
                 {c.type === "bot" && c.doctor && (
                   <div className="doctor-card">

@@ -32,21 +32,101 @@ const formatDoctor = (doctor) =>
     experience: doctor.experience,
   };
 
-// Match detected specialty dynamically against doctors in database
+const roots = [
+  { key: "cardio", aliases: ["cardiology", "cardiologist", "cardio", "heart", "bp", "blood pressure"] },
+  { key: "ortho", aliases: ["orthopedics", "orthopedist", "ortho", "bone", "joint", "back", "spine"] },
+  { key: "neuro", aliases: ["neurology", "neurologist", "neuro", "brain", "nerve", "headache"] },
+  { key: "derm", aliases: ["dermatology", "dermatologist", "derma", "skin", "rash"] },
+  { key: "pedia", aliases: ["pediatric", "pediatrics", "pediatrician", "child", "kids"] },
+  { key: "ophthalm", aliases: ["ophthalmology", "ophthalmologist", "eye", "vision"] },
+  { key: "pulmon", aliases: ["pulmonology", "pulmonologist", "lung", "respiratory", "chest", "breath"] },
+  { key: "rheumat", aliases: ["rheumatology", "rheumatologist", "arthritis", "joint pain"] },
+  { key: "general", aliases: ["general", "physician", "gp"] },
+];
+
 const findSuggestedDoctor = (doctors, detectedSpecialty) => {
   if (!detectedSpecialty || !doctors || doctors.length === 0) return null;
-  const detected = normalizeSpecialty(detectedSpecialty);
+  const target = detectedSpecialty.toLowerCase().trim();
 
-  return (
-    doctors.find((doctor) => {
-      const specialty = normalizeSpecialty(doctor.specialty);
-      return (
-        specialty === detected ||
-        specialty.includes(detected) ||
-        detected.includes(specialty)
-      );
-    }) || null
-  );
+  // 1. Direct match or substring
+  let found = doctors.find((d) => {
+    const s = (d.specialty || "").toLowerCase();
+    return s === target || s.includes(target) || target.includes(s);
+  });
+  if (found) return found;
+
+  // 2. Alias / Root match
+  for (const r of roots) {
+    const matchTarget = r.aliases.some((a) => target.includes(a) || a.includes(target));
+    if (matchTarget) {
+      found = doctors.find((d) => {
+        const s = (d.specialty || "").toLowerCase();
+        return r.aliases.some((a) => s.includes(a)) || s.includes(r.key);
+      });
+      if (found) return found;
+    }
+  }
+
+  // 3. Fallback to General doctor
+  return doctors.find((d) => (d.specialty || "").toLowerCase().includes("general")) || null;
+};
+
+const parseAIResponse = (rawContent) => {
+  let reply = "";
+  let isMedical = false;
+  let detectedSpecialty = null;
+
+  try {
+    let cleaned = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+
+    if (start !== -1 && end !== -1 && end >= start) {
+      const jsonStr = cleaned.substring(start, end + 1);
+      const parsed = JSON.parse(jsonStr);
+      reply = parsed.reply || "";
+      isMedical = Boolean(parsed.isMedical);
+      detectedSpecialty = parsed.specialty || null;
+    } else {
+      const parsed = JSON.parse(cleaned);
+      reply = parsed.reply || "";
+      isMedical = Boolean(parsed.isMedical);
+      detectedSpecialty = parsed.specialty || null;
+    }
+  } catch (err) {
+    // Regex fallback if JSON parsing failed
+    const replyMatch = rawContent.match(/"reply"\s*:\s*"([^"]+)/i);
+    if (replyMatch && replyMatch[1]) {
+      reply = replyMatch[1];
+    } else {
+      reply = rawContent
+        .replace(/^\{\s*"reply"\s*:\s*"?/gi, "")
+        .replace(/"?\s*,?\s*"isMedical".*$/gi, "")
+        .replace(/[\{\}]/g, "")
+        .trim();
+    }
+
+    const isMedMatch = rawContent.match(/"isMedical"\s*:\s*(true|false)/i);
+    if (isMedMatch) {
+      isMedical = isMedMatch[1].toLowerCase() === "true";
+    }
+
+    const specMatch = rawContent.match(/"specialty"\s*:\s*"([^"]+)"/i);
+    if (specMatch && specMatch[1] && specMatch[1] !== "null") {
+      detectedSpecialty = specMatch[1];
+    }
+  }
+
+  // Strip any accidental raw JSON syntax residue
+  if (reply.startsWith('{"reply":') || reply.startsWith('{ "reply":') || reply.includes('"reply":')) {
+    reply = reply
+      .replace(/^\{\s*"reply"\s*:\s*"/i, "")
+      .replace(/"\s*,?\s*"isMedical".*$/gi, "")
+      .replace(/[\{\}]/g, "")
+      .trim();
+  }
+
+  return { reply, isMedical, detectedSpecialty };
 };
 
 export const chatWithAI = async (req, res) => {
@@ -103,16 +183,11 @@ export const chatWithAI = async (req, res) => {
 
     console.log(`[Chat Controller] Conversation History Context (${historyLines.length} messages):\n${historyLines.join("\n") || "(None)"}`);
 
-    // Fetch unique hospital specialties dynamically from database (lean query)
-    const specialtyRecords = await prisma.doctor.findMany({
-      where: { specialty: { not: "" } },
-      select: { specialty: true },
-      distinct: ["specialty"],
-    });
-
+    // Fetch doctors from database for dynamic matching
+    const allDoctors = await prisma.doctor.findMany();
     const availableSpecialties = [
       ...new Set(
-        specialtyRecords
+        allDoctors
           .map((d) => d.specialty?.trim())
           .filter(Boolean)
       ),
@@ -148,13 +223,12 @@ export const chatWithAI = async (req, res) => {
       });
     }
 
-    // Model candidate list (prioritizing ultra-fast models)
+    // Fast working models list
     const CANDIDATE_MODELS = [
       process.env.GEMINI_MODEL,
-      "gemini-3-flash-preview",
-      "gemini-3.6-flash",
-      "gemini-3.7-flash",
+      "gemini-3.5-flash-lite",
       "gemini-3.5-flash",
+      "gemini-3.6-flash",
       "gemini-3.8-flash",
     ].filter(Boolean);
 
@@ -182,11 +256,11 @@ INSTRUCTIONS:
    - Your "reply" MUST BE SHORT: STRICTLY MAXIMUM 30 WORDS (1 to 2 brief sentences).
    - Do NOT write lengthy explanations. Give direct, empathetic advice and recommend consulting the appropriate specialist concisely.
 3. SPECIALTY SUGGESTION:
-   - If health symptoms or follow-up questions are discussed:
+   - If health symptoms, pain, BP, fever, eye, skin, or medical concerns are discussed:
      - Provide brief initial care advice under 30 words.
-     - Match the condition to the most appropriate specialty from the hospital's available specialties (${specialtyList}).
+     - Select the best matching specialty from the hospital's available specialties (${specialtyList}).
      - Set "isMedical" to true.
-   - If the message is a greeting or unrelated to health/symptoms:
+   - If the message is a pure greeting or unrelated to health:
      - Greet them politely and briefly (under 20 words).
      - Set "isMedical" to false and "specialty" to null.
 
@@ -212,13 +286,13 @@ RETURN ONLY A VALID JSON OBJECT:
               contents: [{ parts: [{ text: promptText }] }],
               generationConfig: {
                 temperature: 0.1,
-                maxOutputTokens: 500,
+                maxOutputTokens: 1000,
                 responseMimeType: "application/json"
               },
             },
             {
               headers: { "Content-Type": "application/json" },
-              timeout: 4500,
+              timeout: 5000,
             }
           );
 
@@ -244,99 +318,41 @@ RETURN ONLY A VALID JSON OBJECT:
       }
     }
 
-    // Parse the structured JSON response
+    // Parse the structured JSON response cleanly
     let reply = "Please describe your symptoms or ask a health-related question, and I will provide advice and suggest a doctor.";
     let detectedSpecialty = null;
     let isMedical = false;
 
     if (modelSucceeded) {
-      try {
-        let cleaned = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
-        if (cleaned.includes("{") && !cleaned.includes("}")) {
-          cleaned = cleaned + "\n}";
-        }
-        const start = cleaned.indexOf("{");
-        const end = cleaned.lastIndexOf("}");
-        if (start !== -1 && end !== -1 && end >= start) {
-          const jsonStr = cleaned.substring(start, end + 1);
-          const parsed = JSON.parse(jsonStr);
-          reply = trimToMaxWords(parsed.reply || reply, 30);
-          isMedical = Boolean(parsed.isMedical);
-          detectedSpecialty = parsed.specialty || null;
-        }
-      } catch (e) {
-        console.warn("⚠️ [Chat Controller] JSON parse fallback on AI output:", e.message);
-        // Extract specialty if mentioned in text
-        const foundSpec = availableSpecialties.find((s) => new RegExp(`\\b${s}\\b`, "i").test(rawContent));
-        if (foundSpec) {
-          detectedSpecialty = foundSpec;
-          isMedical = true;
-        }
-        reply = trimToMaxWords(rawContent || reply, 30);
+      const parsedRes = parseAIResponse(rawContent);
+      reply = trimToMaxWords(parsedRes.reply || reply, 30);
+      isMedical = parsedRes.isMedical;
+      detectedSpecialty = parsedRes.specialty;
+
+      // Fallback: If user mentions obvious health keywords, force isMedical = true
+      const healthKeywords = /pain|bp|pressure|fever|cough|dizziness|headache|rash|infection|sick|hurt|stomach|eye|skin|chest|heart|breath|joint|bone/i;
+      if (!isMedical && healthKeywords.test(message)) {
+        isMedical = true;
       }
     } else {
       reply = "Our clinical assistant is experiencing a momentary connection delay. Please describe your symptoms again, or consult one of our hospital doctors directly.";
     }
 
-    // Backend queries the database for the matching doctor
+    // Query database for matching doctor using smart match
     let doctor = null;
     let specialty = null;
 
-    if (isMedical && detectedSpecialty) {
-      // 1. Direct match on specialty from database (MySQL matches case-insensitively)
-      let matched = await prisma.doctor.findFirst({
-        where: {
-          specialty: {
-            contains: detectedSpecialty.trim(),
-          },
-        },
-        orderBy: {
-          id: "asc",
-        },
-      });
+    if (isMedical) {
+      // Find doctor using detectedSpecialty or symptoms matching
+      let matchedDoctor = findSuggestedDoctor(allDoctors, detectedSpecialty || message);
 
-      // 2. Fallback: match normalized specialty from available list
-      if (!matched) {
-        const normalizedTarget = normalizeSpecialty(detectedSpecialty);
-        const bestSpecialty = availableSpecialties.find((sp) => {
-          const normSp = normalizeSpecialty(sp);
-          return (
-            normSp === normalizedTarget ||
-            normSp.includes(normalizedTarget) ||
-            normalizedTarget.includes(normSp)
-          );
-        });
-
-        if (bestSpecialty) {
-          matched = await prisma.doctor.findFirst({
-            where: {
-              specialty: bestSpecialty,
-            },
-            orderBy: {
-              id: "asc",
-            },
-          });
-        }
-      }
-
-      // 3. Fallback to General Doctor if available
-      if (!matched) {
-        matched = await prisma.doctor.findFirst({
-          where: {
-            specialty: {
-              contains: "General",
-            },
-          },
-        });
-      }
-
-      if (matched) {
-        doctor = formatDoctor(matched);
-        specialty = matched.specialty;
-        console.log(`👨‍⚕️ [Chat Controller] Doctor matched from DB by specialty "${detectedSpecialty}": ${doctor.name} (${specialty}, ID: ${doctor.id})`);
+      if (matchedDoctor) {
+        doctor = formatDoctor(matchedDoctor);
+        specialty = matchedDoctor.specialty;
+        console.log(`👨‍⚕️ [Chat Controller] Doctor matched from DB: ${doctor.name} (${specialty}, ID: ${doctor.id})`);
       } else {
         specialty = detectedSpecialty;
-        console.log(`ℹ️ [Chat Controller] AI suggested specialty "${detectedSpecialty}", but no doctor found in DB`);
+        console.log(`ℹ️ [Chat Controller] Suggested specialty "${detectedSpecialty}", but no specific doctor found`);
       }
     } else {
       console.log("ℹ️ [Chat Controller] Non-medical query; doctor card suppressed");

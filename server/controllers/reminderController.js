@@ -119,3 +119,19 @@ console.log("DOCTOR:", doctor);
         });
     }
 };
+
+// ===============================
+// DELETE REMINDER
+// ===============================
+export const deleteReminder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.reminder.delete({
+            where: { id: Number(id) },
+        });
+        res.json({ message: "Reminder deleted successfully" });
+    } catch (error) {
+        console.error("Delete reminder error:", error);
+        res.status(500).json({ error: "Failed to delete reminder" });
+    }
+};

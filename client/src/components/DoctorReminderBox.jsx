@@ -36,25 +36,27 @@ export default function DoctorReminderBox() {
             setReminders(res.data);
 
         } catch (error) {
-
             console.log(error);
         }
     };
 
-    useEffect(() => {
+    const handleDelete = async (id) => {
+        try {
+            await API.delete(`/reminders/${id}`);
+            setReminders((prev) => prev.filter((r) => r.id !== id));
+        } catch (error) {
+            console.error("Failed to delete reminder", error);
+        }
+    };
 
+    useEffect(() => {
         fetchReminders();
 
-        const interval =
-            setInterval(() => {
+        const interval = setInterval(() => {
+            fetchReminders();
+        }, 5000);
 
-                fetchReminders();
-
-            }, 5000);
-
-        return () =>
-            clearInterval(interval);
-
+        return () => clearInterval(interval);
     }, []);
 
     return (
@@ -69,49 +71,49 @@ export default function DoctorReminderBox() {
 
             {/* CHATBOX */}
             {open && (
-
                 <div className="doctor-reminder-chatbox">
-
                     <div className="doctor-reminder-header">
-
                         AI Doctor Reminders
-
                     </div>
 
                     <div className="doctor-reminder-messages">
-
                         {reminders.length === 0 ? (
-
-                            <p>
-                                No reminders available
-                            </p>
-
+                            <p>No reminders available</p>
                         ) : (
-
                             reminders.map((r) => (
-
                                 <div
                                     key={r.id}
-
                                     className="doctor-reminder-card"
+                                    style={{ position: "relative" }}
                                 >
+                                    <button
+                                        onClick={() => handleDelete(r.id)}
+                                        title="Delete reminder"
+                                        style={{
+                                            position: "absolute",
+                                            top: "6px",
+                                            right: "8px",
+                                            background: "none",
+                                            border: "none",
+                                            color: "#94a3b8",
+                                            fontSize: "14px",
+                                            fontWeight: "bold",
+                                            cursor: "pointer",
+                                        }}
+                                        onMouseEnter={(e) => (e.target.style.color = "#ef4444")}
+                                        onMouseLeave={(e) => (e.target.style.color = "#94a3b8")}
+                                    >
+                                        ×
+                                    </button>
 
-                                    <p>
-                                        {r.message}
-                                    </p>
+                                    <p style={{ paddingRight: "16px" }}>{r.message}</p>
 
                                     <small>
-                                        Patient:
-                                        {" "}
-                                        {
-                                            r.appointment?.patient?.name
-                                        }
+                                        Patient: {r.appointment?.patient?.name}
                                     </small>
-
                                 </div>
                             ))
                         )}
-
                     </div>
                 </div>
             )}
